@@ -4,6 +4,18 @@ Simulador arquitectónico interactivo para un local de referencia en **Casma, Á
 
 El espacio es geometría tridimensional real, con navegación libre, colisiones y selección por raycasting. No usa fotografías, panoramas ni renders como sustituto de la escena.
 
+## Abrir el modelo sin instalar programas
+
+La carpeta `docs` contiene la versión autónoma del simulador. También se distribuye como `modelo-3d-listo.zip`: descomprime ese archivo y abre **ABRIR-MODELO-3D.html** con Chrome o Edge. El HTML incluye la aplicación, Three.js, los productos y la interfaz; no necesita Node.js ni descargar modelos externos.
+
+Para reconstruir esa versión desde el código: `npm ci` y `npm run build:standalone`. El archivo se genera en `docs/index.html`. No reemplaza la aplicación Next.js: ambas usan los mismos componentes y datos.
+
+## Publicar la demo en GitHub Pages
+
+Se proporciona una rama `gh-pages` con `index.html` y `.nojekyll`, preparada para servir el simulador estático. Si Pages no está activo, el propietario del repositorio debe abrir **Settings → Pages**, seleccionar **Deploy from a branch**, elegir **gh-pages / (root)** y guardar. GitHub Pages puede exigir que el repositorio sea público en planes gratuitos.
+
+La integración usada para subir el código no dispone de permisos de administración de Pages ni de visibilidad. Guardar el HTML en una rama no confirma por sí solo que haya una web publicada. Comprueba que GitHub muestre el estado de publicación y la URL antes de compartir la demo.
+
 ## Ejecución
 
 Recomendado: **Node.js 24 LTS** y npm. También requiere un navegador con WebGL 2 y aceleración gráfica; Chrome y Edge actuales son los navegadores objetivo.

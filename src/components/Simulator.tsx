@@ -50,7 +50,7 @@ export default function Simulator(){
   const togglePanel=(p:'budget'|'objects')=>{setPanel(old=>old===p?null:p);setMobilePanel(true);};
   return <main className="studio">
     <header className="topbar">
-      <a className="brand" href="/" aria-label="Miga, inicio"><span className="brand-symbol"><PawPrint size={24} strokeWidth={1.7}/></span><span>miga<span className="brand-dot">.</span></span></a>
+      <a className="brand" href="#" aria-label="Miga, inicio" onClick={e=>{e.preventDefault();setMode('orbit');setRoof(false);setSelected(null);setPanel(null);setMobilePanel(false);setReset(v=>v+1);}}><span className="brand-symbol"><PawPrint size={24} strokeWidth={1.7}/></span><span>miga<span className="brand-dot">.</span></span></a>
       <div className="project-separator"/><div className="project-name"><span>ESTUDIO DE ESPACIOS</span><strong>Pet Shop & Grooming</strong></div>
       <nav className="top-nav" aria-label="Secciones del proyecto"><button className={mode!=='plan'&&panel!=='budget'?'active':''} onClick={()=>changeMode('orbit')}>Explorar</button><button className={mode==='plan'?'active':''} onClick={()=>changeMode('plan')}>Distribución</button><button className={panel==='budget'?'active':''} onClick={()=>togglePanel('budget')}>Inversión</button></nav>
       <span className="location"><MapPin size={14}/>Casma, Perú</span>

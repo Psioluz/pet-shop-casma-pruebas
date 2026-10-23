@@ -22,3 +22,11 @@ Presupuestos conciliados con las partidas y 10% de contingencia:
 Los precios son supuestos para planificación, sin cotización local comprobada. El documento README explica alcance y exclusiones.
 
 Se verificó el build y su ejecución local en producción. **No se realizó una publicación en Vercel** ni se ejecutó Edge por separado. La prueba móvil usa emulación de Chromium, no un teléfono físico. El renderizado del entorno de pruebas es por software; no se afirma una tasa de cuadros medida en hardware de gama media.
+
+## Versión autónoma para publicación y descarga
+
+Se añadió `npm run build:standalone`, que genera `docs/index.html` con toda la aplicación y sus dependencias incluidas. El archivo se sirve como HTML estático, sin ejecutar Next.js o Node.js en el servidor. La marca Miga reinicia la vista dentro de la página para que también funcione en GitHub Pages y en el archivo descargable.
+
+La prueba completa de navegador se ejecutó contra el HTML autónomo mediante un servidor estático local: selección 3D, plano, propuestas, CSV, movimiento, mouse, colisiones, puertas y controles táctiles aprobados, sin errores JavaScript ni recursos externos. La compilación de Next.js y las 6 pruebas de lógica también siguen correctas.
+
+El navegador administrado del entorno bloquea URLs `file://` por política; no se validó la apertura directa con ese protocolo aquí. El contenido HTML se verificó íntegramente por HTTP. La publicación en GitHub Pages requiere activación por el propietario; la integración no tiene permisos de administración de Pages o visibilidad.
