@@ -27,23 +27,77 @@ export const items: ShopItem[] = [
   { id:'camas', name:'Cama y transportadora de exhibición', kind:'bed', position:[1.75,0,0.96], size:[0.85,0.55,0.55], category:'Inventario inicial', prices:prices(200,350,550), features:'Una cama mediana y una transportadora. Muestra comercial junto a accesorios, fuera de la circulación principal.', zone:'Tienda' },
   { id:'planta', name:'Maceta decorativa', kind:'plant', position:[-2.15,0,-3.65], size:[0.3,0.85,0.3], category:'Mobiliario', prices:prices(65,95,140), features:'Follaje artificial, sin toxicidad vegetal ni tierra expuesta a mascotas. Maceta estable y lavable.', zone:'Recepción' },
 ];
+export interface LayoutConfig { width:number; depth:number; height:number; emphasis:'equilibrado'|'tienda'|'cuidado'; finish:'roble'|'nogal' }
+export interface ShopLayout { config:LayoutConfig; items:ShopItem[]; front:number; back:number; partition:number; entryWidth:number; serviceWidth:number; serviceArea:number; retailArea:number; warnings:string[] }
+export const defaultConfig:LayoutConfig={width:5,depth:8,height:3,emphasis:'equilibrado',finish:'nogal'};
+export const formatNumber=(n:number)=>new Intl.NumberFormat('es-PE',{maximumFractionDigits:2}).format(n);
+export function validateConfig(c:LayoutConfig):string|null {
+  if(!c||!['equilibrado','tienda','cuidado'].includes(c.emphasis)||!['roble','nogal'].includes(c.finish))return 'Selecciona un tipo de distribución y acabado válidos.';
+  if(![c.width,c.depth,c.height].every(Number.isFinite))return 'Introduce medidas válidas en metros.';
+  if(c.width<3.2||c.width>12)return 'El frente debe medir entre 3,20 y 12 m.';
+  if(c.depth<5.5||c.depth>20)return 'El fondo debe medir entre 5,50 y 20 m.';
+  if(c.height<2.5||c.height>4.5)return 'La altura debe medir entre 2,50 y 4,50 m.';
+  return null;
+}
+export function createLayout(config:LayoutConfig):ShopLayout {
+  const error=validateConfig(config);if(error)throw new Error(error);
+  const c={...config},w=c.width,d=c.depth,front=-d/2,back=d/2;
+  const serviceDepth=Math.min(d*.47,c.emphasis==='cuidado'?3.6:c.emphasis==='tienda'?2.55:2.8);
+  const partition=back-serviceDepth,entryWidth=Math.min(1.6,w-2.1),serviceWidth=Math.min(1.2,w-2.0);
+  const result:ShopItem[]=[];
+  function put(id:string,position:Vec3,size?:Vec3,newId?:string){
+    const source=items.find(i=>i.id===id)!;const dims=size||source.size;
+    const factor=source.kind==='shelf'?dims[2]/source.size[2]:source.kind==='counter'?dims[0]/source.size[0]:1;
+    result.push({...source,id:newId||id,position,size:[...dims],prices:{economica:Math.round(source.prices.economica*factor),intermedia:Math.round(source.prices.intermedia*factor),completa:Math.round(source.prices.completa*factor)}});
+  }
+  const shelfStart=front+1.85,shelfEnd=partition-.47,span=Math.max(.65,shelfEnd-shelfStart);
+  const modules=Math.max(1,Math.ceil(span/3.4)),length=(span-(modules-1)*.13)/modules;
+  for(let n=0;n<modules;n++){
+    const z=shelfStart+length/2+n*(length+.13);
+    put('alimentos',[-w/2+.34,0,z],[.48,1.9,length],n?'alimentos-'+n:'alimentos');
+    put('accesorios',[w/2-.34,0,z],[.48,1.9,length],n?'accesorios-'+n:'accesorios');
+  }
+  const counterWidth=Math.min(1.65,(w-1.4)/2),benchWidth=Math.min(1.3,(w-1.5)/2);
+  put('caja',[w/2-.12-counterWidth/2,0,front+.76],[counterWidth,1.05,.65]);
+  put('espera',[-w/2+.12+benchWidth/2,0,front+.78],[benchWidth,.82,.55]);
+  if(w>=4.8&&d-serviceDepth>=4.5){
+    const z=(shelfStart+shelfEnd)/2;
+    put('isla',[w>=7.2?-1.1:0,0,z]);
+    if(w>=7.2)put('isla',[1.1,0,z],[.8,1.1,1.15],'isla-extra');
+  }
+  const bathWidth=w<4.2?1.2:1.5,tableWidth=w<4.2?.95:1.2;
+  put('tina',[-w/2+.2+bathWidth/2,0,back-.8],[bathWidth,1.1,.85]);
+  put('mesa',[w/2-.35-tableWidth/2,0,partition+.95],[tableWidth,.85,.65]);
+  put('secador',[w/2-.38,0,back-.65]);
+  put('almacen',[w<4.2?.25:0,0,back-.35],[w<4.2?.6:1.05,2.1,.5]);
+  put('limpieza',[-w/2+.33,0,partition+.52]);
+  if(w>=4.6&&d-serviceDepth>=4.5)put('camas',[w/2-.95,0,front+1.55],[.85,.55,.55]);
+  if(w>=4.2)put('planta',[-w/2+.2,0,front+.22]);
+  const warnings:string[]=[];
+  if(!result.some(i=>i.kind==='island'))warnings.push('Distribución compacta: sin isla central para conservar el paso.');
+  if(w<4.2)warnings.push('Tina y mesa compactas: prever atención de mascotas pequeñas y medianas.');
+  if(c.emphasis==='cuidado')warnings.push('Se reserva más fondo para baño y peluquería; se reduce la exhibición comercial.');
+  warnings.push('Distribución preliminar. Validar puertas, evacuación e instalaciones con las medidas reales del inmueble.');
+  return {config:c,items:result,front,back,partition,entryWidth,serviceWidth,serviceArea:w*serviceDepth,retailArea:w*(d-serviceDepth),warnings};
+}
+export const defaultLayout=createLayout(defaultConfig);
 export interface BudgetLine { id: string; name: string; category: ShopItem['category']; quantity: number; unit: string; price: number; total: number }
-export function budgetLines(proposal: Proposal): BudgetLine[] {
-  const base = items.map(i => ({ id:i.id, name:i.name, category:i.category, quantity:1, unit:'ud.', price:i.prices[proposal], total:i.prices[proposal] }));
+export function budgetLines(proposal: Proposal,layout:ShopLayout=defaultLayout): BudgetLine[] {
+  const base = layout.items.map(i => ({ id:i.id, name:i.name, category:i.category, quantity:1, unit:'ud.', price:i.prices[proposal], total:i.prices[proposal] }));
   const extras: {id:string;name:string;category:ShopItem['category'];qty:number;unit:string;values:Record<Proposal,number>}[] = [
-    {id:'piso',name:'Cerámico antideslizante instalado',category:'Acabados',qty:40,unit:'m²',values:prices(45,58,75)},
-    {id:'pintura',name:'Pintura lavable y sellado',category:'Acabados',qty:65,unit:'m²',values:prices(8,12,18)},
-    {id:'mamparas',name:'Mamparas y puertas de seguridad',category:'Acabados',qty:1,unit:'lote',values:prices(1100,1600,2400)},
+    {id:'piso',name:'Cerámico antideslizante instalado',category:'Acabados',qty:Number((layout.config.width*layout.config.depth).toFixed(2)),unit:'m²',values:prices(45,58,75)},
+    {id:'pintura',name:'Pintura lavable y sellado',category:'Acabados',qty:Number(((2*(layout.config.width+layout.config.depth)*layout.config.height)-layout.config.width*2.6).toFixed(2)),unit:'m²',values:prices(8,12,18)},
+    {id:'mamparas',name:'Mamparas y puertas de seguridad',category:'Acabados',qty:1,unit:'lote',values:prices(Math.round(1100*layout.config.width/5),Math.round(1600*layout.config.width/5),Math.round(2400*layout.config.width/5))},
     {id:'sanitaria',name:'Agua, desagüe y trampa de pelo',category:'Acabados',qty:1,unit:'lote',values:prices(750,1000,1450)},
-    {id:'electrica',name:'LED, ventilación y protección diferencial',category:'Acabados',qty:1,unit:'lote',values:prices(650,950,1350)},
+    {id:'electrica',name:'LED, ventilación y protección diferencial',category:'Acabados',qty:1,unit:'lote',values:prices(Math.round(650*(.5+layout.config.width*layout.config.depth/80)),Math.round(950*(.5+layout.config.width*layout.config.depth/80)),Math.round(1350*(.5+layout.config.width*layout.config.depth/80)))},
     {id:'herramientas',name:'Máquina, tijeras, cepillos y utensilios',category:'Equipamiento',qty:1,unit:'kit',values:prices(450,800,1450)},
-    {id:'stock',name:'Alimentos, snacks, arena, higiene y correas',category:'Inventario inicial',qty:1,unit:'lote',values:prices(900,1600,3000)},
+    {id:'stock',name:'Stock inicial según metros de exhibición',category:'Inventario inicial',qty:Math.max(.6,Math.round(layout.items.filter(i=>i.kind==='shelf').reduce((sum,i)=>sum+i.size[2],0)/5.6*100)/100),unit:'lote base',values:prices(900,1600,3000)},
     {id:'rotulo',name:'Letrero e identidad básica',category:'Acabados',qty:1,unit:'ud.',values:prices(230,380,650)},
   ];
   return [...base, ...extras.map(i=>({id:i.id,name:i.name,category:i.category,quantity:i.qty,unit:i.unit,price:i.values[proposal],total:i.qty*i.values[proposal]}))];
 }
-export function estimate(proposal: Proposal) {
-  const lines = budgetLines(proposal);
+export function estimate(proposal: Proposal,layout:ShopLayout=defaultLayout) {
+  const lines = budgetLines(proposal,layout);
   const subtotal = lines.reduce((sum,line)=>sum+line.total,0);
   const contingency = Math.round(subtotal * 0.1);
   return { lines, subtotal, contingency, total:subtotal+contingency, target:proposals.find(p=>p.id===proposal)!.target };
@@ -56,31 +110,31 @@ export function toggleGate(gates:GateState,gate:keyof GateState):GateState {
   return {...gates,[gate]:!gates[gate]};
 }
 export type Obstacle = {x:number;z:number;w:number;d:number};
-export function obstacles(gates:GateState): Obstacle[] {
+export function obstacles(gates:GateState,layout:ShopLayout=defaultLayout): Obstacle[] {
+  const {front,partition,entryWidth,serviceWidth}=layout,w=layout.config.width;
   return [
-    ...items.map(i=>({x:i.position[0],z:i.position[2],w:i.size[0],d:i.size[2]})),
-    {x:-1.55,z:1.3,w:1.9,d:0.08},{x:1.55,z:1.3,w:1.9,d:0.08},
-    {x:-0.83,z:-3.6,w:0.06,d:0.8},{x:0.83,z:-3.6,w:0.06,d:0.8},
-    ...(!gates.entrance?[{x:0,z:-4,w:1.6,d:0.08}]:[]),
-    ...(!gates.vestibule?[{x:0,z:-3.22,w:1.6,d:0.06}]:[]),
-    ...(!gates.service?[{x:0,z:1.3,w:1.2,d:0.06}]:[]),
-    ...(gates.entrance?[-.8,.8].map(x=>({x,z:-4.4,w:.035,d:.8})):[]),
-    ...(gates.vestibule?[-.8,.8].map(x=>({x,z:-2.82,w:.035,d:.8})):[]),
+    ...layout.items.map(i=>({x:i.position[0],z:i.position[2],w:i.size[0],d:i.size[2]})),
+    ...[-1,1].map(side=>({x:side*(w+serviceWidth)/4,z:partition,w:(w-serviceWidth)/2,d:.06})),
+    ...[-1,1].map(side=>({x:side*(entryWidth/2+.03),z:front+.4,w:.04,d:.8})),
+    ...(!gates.entrance?[{x:0,z:front,w:entryWidth,d:.06}]:[]),
+    ...(!gates.vestibule?[{x:0,z:front+.8,w:entryWidth,d:.06}]:[]),
+    ...(!gates.service?[{x:0,z:partition,w:serviceWidth,d:.06}]:[]),
+    ...(gates.entrance?[-1,1].map(side=>({x:side*entryWidth/2,z:front-entryWidth/4,w:.035,d:entryWidth/2})):[]),
+    ...(gates.vestibule?[-1,1].map(side=>({x:side*entryWidth/2,z:front+.8+entryWidth/4,w:.035,d:entryWidth/2})):[]),
   ];
 }
-export function canMove(x:number,z:number,gates:GateState,radius=0.19):boolean {
-  if(x < -2.5+radius || x > 2.5-radius || z > 4-radius || z < -5.4+radius) return false;
-  // Front facade can be crossed only through its 1.6 m opening.
-  if(z < -4+radius && z > -4-radius && Math.abs(x)>0.8-radius) return false;
-  if(z < -4 && Math.abs(x)>0.8-radius) return false;
-  return !obstacles(gates).some(b=>Math.abs(x-b.x)<b.w/2+radius && Math.abs(z-b.z)<b.d/2+radius);
+export function canMove(x:number,z:number,gates:GateState,radius=0.19,layout:ShopLayout=defaultLayout):boolean {
+  const {width,depth}=layout.config;
+  if(x < -width/2+radius || x > width/2-radius || z > depth/2-radius || z < -depth/2-1.4+radius) return false;
+  if(z < layout.front+radius && Math.abs(x)>layout.entryWidth/2-radius) return false;
+  return !obstacles(gates,layout).some(b=>Math.abs(x-b.x)<b.w/2+radius && Math.abs(z-b.z)<b.d/2+radius);
 }
-export function moveWithCollisions(x:number,z:number,dx:number,dz:number,gates:GateState) {
+export function moveWithCollisions(x:number,z:number,dx:number,dz:number,gates:GateState,layout:ShopLayout=defaultLayout) {
   // Substeps prevent tunnelling through thin glass when a frame is delayed.
   const steps=Math.max(1,Math.ceil(Math.hypot(dx,dz)/0.055));
   for(let i=0;i<steps;i++) {
-    if(canMove(x+dx/steps,z,gates)) x+=dx/steps;
-    if(canMove(x,z+dz/steps,gates)) z+=dz/steps;
+    if(canMove(x+dx/steps,z,gates,.19,layout)) x+=dx/steps;
+    if(canMove(x,z+dz/steps,gates,.19,layout)) z+=dz/steps;
   }
   return {x,z};
 }

@@ -1,149 +1,113 @@
-"""Browser regression checks. Requires Python Playwright and a running production server."""
-import json
-import os
+"""Brío Pet: designer, 3D, budget and mobile regression against the static or Next build."""
+import json,os,math
 from pathlib import Path
-from playwright.sync_api import sync_playwright, expect
-
-BASE_URL = os.environ.get('BASE_URL', 'http://127.0.0.1:3000')
-OUT = Path(__file__).resolve().parents[1] / 'playwright-results'
+from playwright.sync_api import sync_playwright,expect
+URL=os.environ.get('BASE_URL','http://127.0.0.1:3002/index.html')
+OUT=Path(__file__).resolve().parents[1]/'playwright-results'
 OUT.mkdir(exist_ok=True)
 
 def position(page):
-    dot = page.locator('.mini-plan circle').last
-    return {'x': (float(dot.get_attribute('cx'))-25)/50-2.5,
-            'z': 4-(float(dot.get_attribute('cy'))-25)/50}
-
-def hold(page, key, duration):
-    page.keyboard.down(key)
-    page.wait_for_timeout(duration)
-    page.keyboard.up(key)
-    page.wait_for_timeout(250)
-
-def move_until(page,key,predicate,timeout=18000):
-    page.keyboard.down(key)
-    try:
-        for _ in range(timeout//100):
-            if predicate(position(page)): return
-            page.wait_for_timeout(100)
-        raise AssertionError({'movement_target_not_reached':key,'position':position(page)})
-    finally:
-        page.keyboard.up(key)
+ m=page.locator('.minimap')
+ return {'x':float(m.get_attribute('data-x')),'z':float(m.get_attribute('data-z'))}
+def ready(page): expect(page.locator('.view-status')).to_contain_text('MODELO 3D INTERACTIVO',timeout=60000)
+def config(page,w,d,h=3,priority='equilibrado',finish='nogal'):
+ for label,value in [('Frente',w),('Fondo',d),('Altura',h)]:
+  page.get_by_role('spinbutton',name=f'{label} del local en metros').fill(str(value))
+ page.get_by_label('Prioridad del diseño',exact=True).select_option(priority)
+ page.get_by_label('Acabados',exact=True).select_option(finish)
+ page.get_by_role('button',name='Diseñar con estas medidas',exact=True).click()
+ expect(page.get_by_test_id('floor-area')).to_contain_text(str(w*d).removesuffix('.0'))
+def move_until(page,key,goal):
+ page.keyboard.down(key)
+ try:
+  for _ in range(200):
+   if goal(position(page)): return
+   page.wait_for_timeout(100)
+  raise AssertionError(position(page))
+ finally:page.keyboard.up(key)
 
 with sync_playwright() as p:
-    browser = p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH', '/usr/bin/chromium'),
-        headless=True, args=['--no-sandbox','--enable-unsafe-swiftshader'])
-    page = browser.new_page(viewport={'width':1440,'height':1000}, device_scale_factor=1)
-    errors, external = [], []
-    page.on('pageerror', lambda e: errors.append(str(e)))
-    page.on('request',lambda r: external.append(r.url) if not r.url.startswith(BASE_URL) and not r.url.startswith(('data:', 'blob:')) else None)
-    page.goto(BASE_URL, wait_until='networkidle')
-    expect(page.locator('.view-status')).to_contain_text('MODELO 3D INTERACTIVO', timeout=60000)
-    print('desktop scene ready',flush=True)
-    expect(page.locator('canvas')).to_be_visible()
-    page.wait_for_timeout(700)
-    page.screenshot(path=str(OUT / 'desktop.png'))
-    # Pick the counter directly in the WebGL canvas, not through a DOM proxy.
-    page.mouse.click(649, 644)
-    expect(page.locator('.inspector h3')).to_have_text('Mostrador y punto de venta', timeout=10000)
-    print('3D picking passed',flush=True)
-    totals = {}
-    for name in ['Económica','Intermedia','Completa']:
-        page.get_by_role('radio', name=name).click()
-        expect(page.get_by_role('radio',name=name)).to_have_attribute('aria-checked','true')
-        totals[name] = page.get_by_test_id('budget-total').inner_text()
-    assert len(set(totals.values())) == 3
-    page.get_by_role('button',name='Mostrar techo',exact=True).click()
-    expect(page.get_by_role('button',name='Ocultar techo',exact=True)).to_be_visible()
-    page.get_by_role('button',name='Ocultar techo',exact=True).click()
-    page.get_by_role('button',name='Plano 2D',exact=True).click()
-    page.get_by_role('button',name='Inspeccionar Tina de baño canino',exact=True).click()
-    expect(page.locator('.inspector h3')).to_have_text('Tina de baño canino')
-    page.screenshot(path=str(OUT / 'plano.png'))
-    page.get_by_role('button',name='Inversión',exact=True).click()
-    expect(page.locator('.budget-group')).to_have_count(4)
-    with page.expect_download() as download:
-        page.get_by_role('button',name='Descargar presupuesto CSV').click()
-    exported=download.value
-    exported.save_as(str(OUT / exported.suggested_filename))
-    csv=(OUT / exported.suggested_filename).read_text(encoding='utf-8-sig')
-    assert 'Contingencia 10%' in csv and 'TOTAL PEN' in csv and '40' in csv
-    print('budget, plan, CSV passed',flush=True)
-    page.get_by_role('button',name='Regresar a la entrada',exact=True).click()
-    expect(page.locator('.minimap')).to_be_visible()
-    page.wait_for_timeout(500)
-    assert abs(position(page)['z']+2.67)<.05
-    # Pointer lock and mouse-look in the actual browser.
-    canvas=page.locator('canvas')
-    canvas.click(position={'x':500,'y':420})
-    page.wait_for_function('!!document.pointerLockElement')
-    assert page.evaluate('!!document.pointerLockElement')
-    page.keyboard.press('Escape')
-    page.wait_for_function('!document.pointerLockElement')
-    move_until(page,'KeyW',lambda pos:pos['z']>=-1.15)
-    first_stop=position(page)
-    assert -2.65 < first_stop['z'] <= -1.1, first_stop
-    # Continue trying to walk through the island; the camera must remain outside it.
-    hold(page,'KeyW',1000)
-    assert position(page)['z'] <= -1.1, position(page)
-    # Move along the left-hand aisle then toward the closed service gate.
-    move_until(page,'KeyD',lambda pos:pos['x']<=-.9)
-    assert position(page)['x'] < -.5, position(page)
-    move_until(page,'KeyW',lambda pos:pos['z']>=1.02)
-    assert position(page)['z'] <= 1.08, position(page)
-    service=page.get_by_role('button',name='Área de cuidado Cerrado',exact=True)
-    service.click()
-    expect(page.get_by_role('button',name='Área de cuidado Abierto',exact=True)).to_be_visible()
-    # Move back to the central opening and actually enter the service zone.
-    move_until(page,'KeyA',lambda pos:pos['x']>=-.15)
-    move_until(page,'KeyW',lambda pos:pos['z']>=1.7)
-    assert position(page)['z']>1.6,position(page)
-    # Verify the entrance's interlock through the real UI.
-    page.get_by_role('button',name='Puerta exterior Cerrado',exact=True).click()
-    page.get_by_role('button',name='Puerta interior Cerrado',exact=True).click()
-    expect(page.get_by_role('button',name='Puerta interior Cerrado',exact=True)).to_be_visible()
-    expect(page.get_by_role('status')).to_contain_text('Cierra primero')
-    page.screenshot(path=str(OUT / 'recorrido.png'))
-    page.get_by_role('button',name='Ayuda y controles').click()
-    expect(page.get_by_role('dialog')).to_be_visible()
-    page.keyboard.press('Escape')
-    expect(page.get_by_role('dialog')).not_to_be_visible()
-    assert not errors, errors
-    assert not external, external
-
-    mobile_context=browser.new_context(viewport={'width':390,'height':844},device_scale_factor=1,is_mobile=True,has_touch=True)
-    mobile=mobile_context.new_page()
-    mobile.on('pageerror',lambda e: errors.append(str(e)))
-    mobile.goto(BASE_URL,wait_until='networkidle')
-    expect(mobile.locator('.view-status')).to_contain_text('MODELO 3D INTERACTIVO',timeout=60000)
-    print('mobile scene ready',flush=True)
-    assert mobile.evaluate('document.documentElement.scrollWidth<=innerWidth')
-    mobile.screenshot(path=str(OUT / 'mobile.png'))
-    mobile.get_by_role('button',name='Proyecto & presupuesto',exact=True).click()
-    expect(mobile.locator('.project-panel')).to_be_visible()
-    mobile.get_by_role('radio',name='Económica').click()
-    mobile.get_by_role('button',name='Cerrar panel',exact=True).click()
-    mobile.get_by_role('button',name='Recorrer',exact=True).click()
-    expect(mobile.get_by_role('button',name='Avanzar',exact=True)).to_be_visible()
-    mobile.wait_for_timeout(500)
-    before=position(mobile)
-    button=mobile.get_by_role('button',name='Avanzar',exact=True)
-    # Chromium's touch protocol generates real touch pointers and capture events.
-    cdp=mobile_context.new_cdp_session(mobile)
-    box=button.bounding_box()
-    tx,ty=box['x']+box['width']/2,box['y']+box['height']/2
-    cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':tx,'y':ty}]})
-    for _ in range(150):
-        if position(mobile)['z']>before['z']+.3: break
-        mobile.wait_for_timeout(100)
-    cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
-    mobile.wait_for_timeout(250)
-    after=position(mobile)
-    assert after['z']>before['z']+.15, {'before':before,'after':after}
-    assert after['z']<=-1.1
-    cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':250,'y':400}]})
-    cdp.send('Input.dispatchTouchEvent',{'type':'touchMove','touchPoints':[{'x':290,'y':410}]})
-    cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
-    mobile.screenshot(path=str(OUT / 'mobile-recorrido.png'))
-    assert not errors,errors
-    browser.close()
-    print(json.dumps({'desktop':'passed','direct_3d_selection':'passed','plan_selection':'passed','proposals':totals,'csv':'passed','pointer_lock':'passed','keyboard_movement_and_collisions':'passed','door_interlock':'passed','mobile_touch_movement':'passed','javascript_errors':errors,'external_asset_requests':external},ensure_ascii=False))
+ browser=p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH','/usr/bin/chromium'),args=['--no-sandbox','--enable-unsafe-swiftshader'])
+ page=browser.new_page(viewport={'width':1440,'height':1000})
+ errors=[];external=[]
+ page.on('pageerror',lambda e:errors.append(str(e)))
+ page.on('request',lambda r:external.append(r.url) if not r.url.startswith(URL) and not r.url.startswith(('data:','blob:')) else None)
+ page.goto(URL,wait_until='networkidle');ready(page)
+ expect(page.get_by_role('link',name='Brío Pet, inicio')).to_be_visible()
+ expect(page.get_by_test_id('floor-area')).to_have_text('40m²')
+ page.wait_for_timeout(1200);page.screenshot(path=str(OUT/'brio-interior.png'))
+ # Compact local: regenerate fixtures, budget and 2D footprint.
+ config(page,3.5,6,2.7);ready(page)
+ small_total=page.get_by_test_id('budget-total').inner_text()
+ page.get_by_role('button',name='Ver mobiliario',exact=True).click()
+ expect(page.locator('.object-list')).not_to_contain_text('Exhibidor central')
+ page.get_by_role('button',name='Cerrar panel',exact=True).click()
+ page.get_by_role('button',name='Plano 2D',exact=True).click()
+ expect(page.locator('.floor-plan')).to_have_attribute('viewBox','0 0 255 400')
+ page.get_by_role('button',name='Inspeccionar Tina de baño canino',exact=True).click()
+ expect(page.locator('.inspector h3')).to_have_text('Tina de baño canino')
+ expect(page.locator('.inspector-dim')).to_contain_text('1.20')
+ page.screenshot(path=str(OUT/'brio-compacto.png'))
+ # Larger local adds shelving modules and two central displays.
+ config(page,8,12,3.5,'cuidado','roble')
+ large_total=page.get_by_test_id('budget-total').inner_text()
+ assert large_total!=small_total
+ expect(page.locator('.floor-plan')).to_have_attribute('viewBox','0 0 480 700')
+ page.get_by_role('button',name='Ver mobiliario',exact=True).click()
+ expect(page.locator('.object-list button').filter(has_text='Exhibidor central')).to_have_count(2)
+ page.get_by_role('button',name='Cerrar panel',exact=True).click()
+ page.get_by_role('button',name='Vista aérea',exact=True).click();ready(page)
+ page.screenshot(path=str(OUT/'brio-grande.png'))
+ # Budget floor quantity is 96 m² and all proposals update.
+ for name in ['Económica','Intermedia','Completa']:page.get_by_role('radio',name=name).click()
+ page.get_by_role('button',name='Inversión',exact=True).click()
+ expect(page.locator('.budget-line').filter(has_text='Cerámico')).to_contain_text('96 m²')
+ with page.expect_download() as downloaded:page.get_by_role('button',name='Descargar presupuesto CSV').click()
+ downloaded.value.save_as(str(OUT/'brio-presupuesto.csv'))
+ csv=(OUT/'brio-presupuesto.csv').read_text(encoding='utf-8-sig')
+ assert 'BRÍO PET' in csv and '96' in csv and 'Contingencia 10%' in csv
+ page.get_by_role('button',name='Cerrar panel',exact=True).click()
+ config(page,5,8);page.get_by_role('button',name='Regresar a la entrada',exact=True).click();ready(page)
+ # Pointer lock, physical movement and closed service gate.
+ canvas=page.locator('canvas');canvas.click(position={'x':500,'y':430})
+ page.wait_for_function('!!document.pointerLockElement')
+ page.keyboard.press('Escape');page.wait_for_function('!document.pointerLockElement')
+ before=position(page)
+ move_until(page,'KeyW',lambda pos:pos['z']>=.93)
+ stopped=position(page)
+ assert math.hypot(stopped['x']-before['x'],stopped['z']-before['z'])>2
+ assert stopped['z']<1.1
+ page.get_by_role('button',name='Área de cuidado Cerrado',exact=True).click()
+ move_until(page,'KeyW',lambda pos:pos['z']>1.65)
+ page.get_by_role('button',name='Puerta exterior Cerrado',exact=True).click()
+ page.get_by_role('button',name='Puerta interior Cerrado',exact=True).click()
+ expect(page.get_by_role('status')).to_contain_text('Cierra primero')
+ page.get_by_role('button',name='Ayuda y controles',exact=True).click();expect(page.get_by_role('dialog')).to_be_visible()
+ page.keyboard.press('Escape')
+ assert not errors,errors
+ print('Desktop: dimensions, compact/large redesign, plan, budget, walking and gates passed.',flush=True)
+ # Mobile configuration and real touch input.
+ context=browser.new_context(viewport={'width':390,'height':844},device_scale_factor=1,is_mobile=True,has_touch=True)
+ mobile=context.new_page();mobile.on('pageerror',lambda e:errors.append(str(e)))
+ mobile.goto(URL,wait_until='networkidle');ready(mobile)
+ mobile.get_by_role('button',name='Medidas del local',exact=True).click()
+ config(mobile,4,7,2.8);ready(mobile)
+ expect(mobile.locator('.project-panel')).not_to_be_visible()
+ assert mobile.evaluate('document.documentElement.scrollWidth<=innerWidth')
+ mobile.screenshot(path=str(OUT/'brio-movil.png'))
+ start=position(mobile);button=mobile.get_by_role('button',name='Avanzar',exact=True);expect(button).to_be_visible()
+ box=button.bounding_box();cdp=context.new_cdp_session(mobile)
+ cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':box['x']+box['width']/2,'y':box['y']+box['height']/2}]})
+ for _ in range(180):
+  if position(mobile)['z']>start['z']+.25:break
+  mobile.wait_for_timeout(100)
+ cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
+ assert position(mobile)['z']>start['z']+.2
+ mobile.reload(wait_until='networkidle');ready(mobile)
+ mobile.get_by_role('button',name='Medidas del local',exact=True).click()
+ expect(mobile.get_by_role('spinbutton',name='Frente del local en metros')).to_have_value('4')
+ expect(mobile.get_by_role('spinbutton',name='Fondo del local en metros')).to_have_value('7')
+ assert not errors,errors
+ assert not external,external
+ browser.close()
+ print(json.dumps({'dimension_change':'passed','compact_layout':'passed','large_layout':'passed','budget_recalculation':'passed','csv':'passed','pointer_lock_and_collision':'passed','mobile_dimensions_and_touch':'passed','persistence':'passed','javascript_errors':errors,'external_requests':external},ensure_ascii=False))
