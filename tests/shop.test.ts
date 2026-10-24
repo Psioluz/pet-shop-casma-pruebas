@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { canMove,moveWithCollisions,estimate,toggleGate,createLayout,defaultConfig,validateConfig,proposals,type GateState } from '../src/lib/shop';
-const closed:GateState={entrance:false,vestibule:false,service:false};
+import { canMove,moveWithCollisions,estimate,toggleGate,createLayout,snackAssortment,defaultConfig,validateConfig,proposals,type GateState } from '../src/lib/shop';
+const closed:GateState={entrance:false,service:false};
 const careOpen:GateState={...closed,service:true};
-const sizes=[[3.2,5.5],[3.5,6],[4,7],[5,8],[6,10],[8,12],[12,20]];
+const sizes=[[3.2,5.5],[3.5,6],[4,7],[5,8],[6,10],[7,10],[5,14],[10,7],[8,12],[12,20]];
 test('rechaza dimensiones inválidas y valores no finitos',()=>{
  for(const patch of [{width:0},{depth:2},{height:1},{width:NaN},{depth:Infinity}])assert.ok(validateConfig({...defaultConfig,...patch}));
  assert.equal(validateConfig(defaultConfig),null);
@@ -28,7 +28,7 @@ test('reorganiza la distribución, conserva tamaños de equipo y aumenta módulo
  assert.equal(createLayout({...defaultConfig,width:5,depth:7,emphasis:'cuidado'}).items.filter(i=>i.kind==='island').length,0);
  assert.equal(normal.items.filter(i=>i.kind==='island').length,1);
  assert.equal(large.items.filter(i=>i.kind==='island').length,2);
- assert.ok(large.items.filter(i=>i.kind==='shelf').length>normal.items.filter(i=>i.kind==='shelf').length);
+ assert.ok(large.items.filter(i=>i.kind==='shelf').reduce((n,i)=>n+i.size[2],0)>normal.items.filter(i=>i.kind==='shelf').reduce((n,i)=>n+i.size[2],0));
  assert.equal(large.items.find(i=>i.id==='tina')!.size[0],1.5);
  assert.equal(normal.items.find(i=>i.id==='tina')!.size[0],1.5);
  assert.equal(small.items.find(i=>i.id==='tina')!.size[0],1.2);
@@ -46,7 +46,7 @@ test('presupuesto calcula áreas reales, módulos, subtotal y contingencia',()=>
 test('prioridad de cuidado cambia el reparto de áreas sin cambiar superficie total',()=>{
  const care=createLayout({...defaultConfig,emphasis:'cuidado'}),shop=createLayout({...defaultConfig,emphasis:'tienda'});
  assert.ok(care.serviceArea>shop.serviceArea);
- assert.equal(care.serviceArea+care.retailArea,40);
+ assert.equal(care.serviceArea+care.retailArea,70);
 });
 test('colisiones se ajustan a las nuevas paredes, muebles y puerta de servicios',()=>{
  for(const [width,depth] of sizes){
@@ -60,9 +60,25 @@ test('colisiones se ajustan a las nuevas paredes, muebles y puerta de servicios'
   assert.ok(moveWithCollisions(0,start,0,1,careOpen,l).z>l.partition+.25);
  }
 });
-test('el vestíbulo impide abrir sus dos puertas simultáneamente',()=>{
- const exterior=toggleGate(closed,'entrance');assert.equal(toggleGate(exterior,'vestibule'),exterior);
- const interior=toggleGate(closed,'vestibule');assert.equal(toggleGate(interior,'entrance'),interior);
+test('entrada y cuarto cerrado tienen controles y colisiones independientes',()=>{
+ const exterior=toggleGate(closed,'entrance');assert.equal(exterior.entrance,true);assert.equal(exterior.service,false);
+ const both=toggleGate(exterior,'service');assert.equal(both.service,true);assert.equal(both.entrance,true);
+ for(const access of ['abierto','reja','puerta'] as const){
+  const l=createLayout({...defaultConfig,access});
+  assert.equal(canMove(0,l.front,closed,.19,l),access==='abierto');
+  assert.equal(canMove(0,l.front,{...closed,entrance:true},.19,l),true);
+  assert.equal(canMove(0,l.partition,closed,.19,l),false);
+ }
+});
+test('base de 70 m², recepción y espera retiradas, y surtido diverso de snacks',()=>{
+ const l=createLayout(defaultConfig);assert.equal(l.config.width*l.config.depth,70);
+ for(const id of ['caja','espera']){
+  const item=l.items.find(i=>i.id===id)!;
+  assert.ok(item.position[2]-item.size[2]/2-l.front>4,'recepción y espera deben quedar retiradas de la fachada');
+  assert.ok(item.position[2]+item.size[2]/2<l.partition,'fuera del cuarto de servicios');
+ }
+ assert.equal(new Set(snackAssortment.map(x=>x.shape)).size,6);
+ assert.ok(estimate('intermedia',l).lines.some(x=>x.id==='division'&&x.name.includes('opaco')));
 });
 test('puede alcanzarse el frente de baño, grooming y estantes mediante pasillos',()=>{
  for(const [width,depth] of sizes){

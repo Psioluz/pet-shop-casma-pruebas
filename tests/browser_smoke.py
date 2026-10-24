@@ -2,7 +2,7 @@
 import json,os,math
 from pathlib import Path
 from playwright.sync_api import sync_playwright,expect
-URL=os.environ.get('BASE_URL','http://127.0.0.1:3002/index.html')
+URL=os.environ.get('BASE_URL','http://127.0.0.1:3003/index.html')
 OUT=Path(__file__).resolve().parents[1]/'playwright-results'
 OUT.mkdir(exist_ok=True)
 
@@ -34,13 +34,18 @@ with sync_playwright() as p:
  page.on('request',lambda r:external.append(r.url) if not r.url.startswith(URL) and not r.url.startswith(('data:','blob:')) else None)
  page.goto(URL,wait_until='networkidle');ready(page)
  expect(page.get_by_role('link',name='Brío Pet, inicio')).to_be_visible()
- expect(page.get_by_test_id('floor-area')).to_have_text('40m²')
+ expect(page.get_by_test_id('floor-area')).to_have_text('70m²')
+ expect(page.locator('.snack-range li')).to_have_count(6)
+ page.get_by_role('button',name='Ver exhibidor',exact=True).click();ready(page)
+ expect(page.locator('.inspector h3')).to_have_text('Barra de snacks y premios')
+ page.screenshot(path=str(OUT/'brio-v3-surtido.png'))
+ page.get_by_role('button',name='Recorrer',exact=True).click()
  page.wait_for_timeout(1200);page.screenshot(path=str(OUT/'brio-interior.png'))
  # Compact local: regenerate fixtures, budget and 2D footprint.
  config(page,3.5,6,2.7);ready(page)
  small_total=page.get_by_test_id('budget-total').inner_text()
  page.get_by_role('button',name='Ver mobiliario',exact=True).click()
- expect(page.locator('.object-list')).not_to_contain_text('Exhibidor central')
+ expect(page.locator('.object-list')).not_to_contain_text('Barra de snacks')
  page.get_by_role('button',name='Cerrar panel',exact=True).click()
  page.get_by_role('button',name='Plano 2D',exact=True).click()
  expect(page.locator('.floor-plan')).to_have_attribute('viewBox','0 0 255 400')
@@ -54,7 +59,7 @@ with sync_playwright() as p:
  assert large_total!=small_total
  expect(page.locator('.floor-plan')).to_have_attribute('viewBox','0 0 480 700')
  page.get_by_role('button',name='Ver mobiliario',exact=True).click()
- expect(page.locator('.object-list button').filter(has_text='Exhibidor central')).to_have_count(2)
+ expect(page.locator('.object-list button').filter(has_text='Barra de snacks')).to_have_count(2)
  page.get_by_role('button',name='Cerrar panel',exact=True).click()
  page.get_by_role('button',name='Vista aérea',exact=True).click();ready(page)
  page.screenshot(path=str(OUT/'brio-grande.png'))
@@ -69,19 +74,28 @@ with sync_playwright() as p:
  page.get_by_role('button',name='Cerrar panel',exact=True).click()
  config(page,5,8);page.get_by_role('button',name='Regresar a la entrada',exact=True).click();ready(page)
  # Pointer lock, physical movement and closed service gate.
- canvas=page.locator('canvas');canvas.click(position={'x':500,'y':430})
+ canvas=page.locator('canvas');canvas.click(position={'x':500,'y':100})
  page.wait_for_function('!!document.pointerLockElement')
  page.keyboard.press('Escape');page.wait_for_function('!document.pointerLockElement')
+ expect(page.get_by_role('button',name='Cuarto de servicios Cerrado',exact=True)).to_be_visible()
  before=position(page)
- move_until(page,'KeyW',lambda pos:pos['z']>=.93)
+ move_until(page,'KeyW',lambda pos:pos['z']>=.4)
  stopped=position(page)
  assert math.hypot(stopped['x']-before['x'],stopped['z']-before['z'])>2
- assert stopped['z']<1.1
- page.get_by_role('button',name='Área de cuidado Cerrado',exact=True).click()
- move_until(page,'KeyW',lambda pos:pos['z']>1.65)
- page.get_by_role('button',name='Puerta exterior Cerrado',exact=True).click()
- page.get_by_role('button',name='Puerta interior Cerrado',exact=True).click()
- expect(page.get_by_role('status')).to_contain_text('Cierra primero')
+ assert stopped['z']<.5,{'before':before,'stopped':stopped}
+ page.get_by_role('button',name='Cuarto de servicios Cerrado',exact=True).click()
+ move_until(page,'KeyW',lambda pos:pos['z']>1.35)
+ page.get_by_role('button',name='Reja de entrada Abierto',exact=True).click()
+ expect(page.get_by_role('button',name='Reja de entrada Cerrado',exact=True)).to_be_visible()
+ expect(page.get_by_role('button',name='Cuarto de servicios Abierto',exact=True)).to_be_visible()
+ page.get_by_role('button',name='Reja de entrada Cerrado',exact=True).click()
+ # Entrance variants remove the glass vestibule and persist the chosen access.
+ page.get_by_label('Acceso de la tienda',exact=True).select_option('abierto')
+ page.get_by_role('button',name='Diseñar con estas medidas',exact=True).click();ready(page)
+ expect(page.locator('.gate-controls button')).to_have_count(1)
+ page.get_by_label('Acceso de la tienda',exact=True).select_option('puerta')
+ page.get_by_role('button',name='Diseñar con estas medidas',exact=True).click();ready(page)
+ expect(page.get_by_role('button',name='Puerta de entrada Abierto',exact=True)).to_be_visible()
  page.get_by_role('button',name='Ayuda y controles',exact=True).click();expect(page.get_by_role('dialog')).to_be_visible()
  page.keyboard.press('Escape')
  assert not errors,errors

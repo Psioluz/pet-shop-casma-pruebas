@@ -2,7 +2,7 @@
 
 **Brío Pet** es el nombre elegido para la tienda de Luis y Briggite. «Brío» expresa vigor, determinación y vitalidad; la marca interpreta la fortaleza y el carácter decidido de ambos, sin unir fragmentos de sus nombres. La identidad aparece en la web, el mostrador, los empaques y los letreros.
 
-Simulador arquitectónico interactivo de un pet shop con baño y grooming en Casma, Perú. La versión 2 permite definir el local antes de generar la distribución: **frente, fondo, altura, prioridad comercial y acabado**. El modelo se construye con geometría tridimensional real y se puede recorrer.
+Simulador arquitectónico interactivo de un pet shop con baño y grooming en Casma, Perú. La versión 3 permite definir el local antes de generar la distribución: **frente, fondo, altura, tipo de acceso, prioridad comercial y acabado**. El modelo se construye con geometría tridimensional real y se puede recorrer.
 
 ## Probar la demo
 
@@ -10,27 +10,33 @@ La versión publicada se sirve desde la rama `gh-pages` en GitHub Pages:
 
 https://psioluz.github.io/pet-shop-casma-pruebas/
 
+La configuración inicial es **7 × 10 m = 70 m²**, una forma provisional editable. También se ofrecen ejemplos de 5 × 14 y 10 × 7 m.
+
 1. Introduce **Frente**, **Fondo** y **Altura** en el panel del proyecto. En celular abre **Medidas del local**.
-2. Elige si prefieres una distribución equilibrada, más tienda o más área de cuidado; selecciona roble o nogal.
+2. Elige si prefieres una distribución equilibrada, más tienda o más área de cuidado; selecciona roble o nogal y el acceso abierto, con reja o puerta metálica. La reja y la puerta enrollable empiezan abiertas durante la visita.
 3. Pulsa **Diseñar con estas medidas**. Se regeneran el recinto, muebles, plano, colisiones y presupuesto.
 4. Usa **Recorrer**, **Vista aérea** o **Plano 2D** para explorar. Selecciona mobiliario para ver medidas y costos.
 
-El navegador conserva la última configuración válida en almacenamiento local. No se envían medidas ni datos personales a un servidor.
+La versión 3 estrena una clave de almacenamiento para abrir inicialmente el diseño de 70 m². El navegador conserva la última configuración válida en almacenamiento local. No se envían medidas ni datos personales a un servidor.
 
 ## Qué cambia con las medidas
 
 - Rango de frente: **3,20–12 m**; fondo: **5,50–20 m**; altura: **2,50–4,50 m**. El formulario rechaza valores fuera de rango.
 - En locales compactos desaparece la isla central y se usan mostrador, banco, tina y mesa compactos. Las medidas del equipamiento mantienen proporciones prácticas.
 - Al aumentar el fondo se añaden módulos de estantería; en frentes de al menos 7,20 m se colocan dos islas, si hay profundidad suficiente.
-- La prioridad elegida modifica la separación entre comercio y servicios. El acceso a baño y grooming queda controlado por una mampara con puerta.
-- Se recalculan las áreas de suelo, pintura, mamparas, mobiliario, stock de referencia e instalación eléctrica. No se escala todo el mobiliario junto con el edificio.
+- La prioridad elegida modifica la separación entre comercio y servicios. Baño y peluquería quedan en un cuarto con muros hasta el techo y puerta corrediza opaca. No se usan divisiones de vidrio. En vista aérea se cortan los muros para inspeccionar el interior; al recorrer se ve el recinto cerrado.
+- Se recalculan las áreas de suelo, pintura, tabiques opacos, puerta de servicios, cierre metálico, toldo, mobiliario, stock de referencia e instalación eléctrica. No se escala todo el mobiliario junto con el edificio.
 - El motor verifica pasillos mediante colisiones con paredes, puertas y muebles. La distribución es preliminar y presupone una planta rectangular sin columnas u otros obstáculos existentes.
+
+La recepción se ubica al fondo de la tienda, con espacio de trabajo detrás; la espera queda junto al cuarto de servicios, alejada de la fachada. Un toldo cubre el acceso. La posición se retira del frente para reducir exposición directa; confirmar orientación y asoleamiento en el inmueble.
+
+La barra de snacks muestra seis familias con geometrías distintas: galletas horneadas, tiras de pollo, bocados de pescado, masticables dentales, premios de entrenamiento y aros de enriquecimiento. Los estantes combinan sacos, sobres húmedos, conservas y frascos. El botón **Ver exhibidor** enfoca la barra y el panel presenta los nombres y descripciones. Es una propuesta de surtido, no un inventario con disponibilidad o marcas comerciales verificadas.
 
 El modelo incluye recepción y POS, espera, alimentos y snacks, higiene, juguetes, correas y arneses, cama y transportadora cuando hay espacio, tina con ducha, mesa de grooming, sopladora/secador, utensilios, almacén y módulo de limpieza y toallas.
 
 ## Materiales y visualización
 
-Vista inicial a altura humana, luminarias de techo, sombras interiores, piedra/cerámica con relieve, texturas de madera, empaques con identidad propia, superficies curvas en mobiliario y productos, y materiales PBR para acero y vidrio. Una iluminación HDR incluida se utiliza para reflejos e iluminación; **no se muestra como panorama ni reemplaza la geometría del recinto**. Los recursos están documentados en `ASSETS.md`.
+Vista inicial a altura humana, luminarias de techo, sombras interiores, piedra/cerámica con relieve, texturas de madera, empaques con identidad propia, superficies curvas en mobiliario y productos, y materiales PBR para acero y los frascos de producto. Los rótulos usan texturas proporcionadas al cartel, alto contraste y filtrado anisotrópico; la resolución de pantalla llega a 2× según dispositivo. Las fichas HTML permiten leer el surtido sin depender de letras diminutas en el 3D. Una iluminación HDR incluida se utiliza para reflejos e iluminación; **no se muestra como panorama ni reemplaza la geometría del recinto**. Los recursos están documentados en `ASSETS.md`.
 
 Es una visualización interactiva para explorar y planificar. No se ofrece como fotografía, render de trazado de rayos ni expediente técnico de ejecución. La velocidad depende de la GPU y del tamaño del local.
 
@@ -45,7 +51,7 @@ Es una visualización interactiva para explorar y planificar. No se ofrece como 
 | Inspección | Seleccionar muebles en 3D, plano o lista; la vista aérea los enfoca |
 | Techo | Mostrar u ocultar; las paredes recuperan su altura completa al recorrer |
 | Entrada | Botón para volver al punto de inicio del local actual |
-| Puertas | Controles durante el recorrido; el vestíbulo impide abrir ambas puertas a la vez |
+| Puertas | Acceso abierto, reja o puerta metálica enrollable; cuarto de servicios con puerta opaca independiente |
 | Presupuesto | Tres niveles de equipamiento y exportación CSV en soles |
 
 ## Presupuesto
@@ -105,7 +111,7 @@ npm run build
 npm run build:standalone
 ```
 
-Las pruebas de lógica cubren 7 tamaños y 3 prioridades, superposiciones, límites, módulos, equipamiento, áreas, presupuestos, puertas y acceso a las zonas mediante búsqueda de pasillos.
+Las pruebas de lógica cubren 10 tamaños y 3 prioridades, superposiciones, límites, módulos, equipamiento, áreas, presupuestos, puertas y acceso a las zonas mediante búsqueda de pasillos.
 
 La regresión de navegador requiere Python Playwright y Chromium instalados, además de servir la aplicación o el HTML:
 
