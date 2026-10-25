@@ -2,7 +2,9 @@ export type Proposal = 'economica' | 'intermedia' | 'completa';
 export type ViewMode = 'orbit' | 'walk' | 'plan';
 export type Vec3 = [number, number, number];
 export type ItemKind = 'shelf' | 'counter' | 'bench' | 'island' | 'bath' | 'groom' | 'dryer' | 'storage' | 'towels' | 'plant' | 'bed';
+export type Department = 'alimentos'|'ropa'|'accesorios'|'juguetes'|'higiene'|'boutique';
 export interface ShopItem {
+  department?:Department;
   id: string; name: string; kind: ItemKind; position: Vec3; size: Vec3;
   category: 'Mobiliario' | 'Equipamiento' | 'Acabados' | 'Inventario inicial';
   prices: Record<Proposal, number>; features: string; zone: string;
@@ -37,9 +39,20 @@ export const snackAssortment = [
  {name:'Aros de enriquecimiento',detail:'Snacks para usar con juguetes interactivos',shape:'ring',color:'#ce9b55'},
 ] as const;
 
+export const storeDepartments = [
+ {id:'ropa',title:'Ropa y moda',subtitle:'Suéteres, impermeables y bandanas',color:'#cb876f'},
+ {id:'accesorios',title:'Paseo y accesorios',subtitle:'Arneses, collares, correas y bolsos',color:'#557a72'},
+ {id:'juguetes',title:'Juego y descanso',subtitle:'Pelotas, cuerdas, peluches y camas',color:'#c69b49'},
+ {id:'higiene',title:'Higiene y cuidado',subtitle:'Shampoo, cepillos y artículos de aseo',color:'#899a75'},
+ {id:'snacks',title:'Snacks y premios',subtitle:'Una barra de premios para descubrir',color:'#ab724a'},
+] as const;
+export function departmentTarget(items:ShopItem[],department:string):ShopItem|undefined {
+ if(department==='snacks')return items.find(i=>i.id==='isla')||items.find(i=>i.department==='alimentos');
+ return items.find(i=>i.department===department)||(department==='higiene'?items.find(i=>i.department==='accesorios'):undefined)||items.find(i=>i.department==='boutique')||items.find(i=>i.id==='accesorios')||items.find(i=>i.id==='camas');
+}
 export interface LayoutConfig { width:number; depth:number; height:number; emphasis:'equilibrado'|'tienda'|'cuidado'; finish:'roble'|'nogal'; access:'abierto'|'reja'|'puerta' }
 export interface ShopLayout { config:LayoutConfig; items:ShopItem[]; front:number; back:number; partition:number; entryWidth:number; serviceWidth:number; serviceArea:number; retailArea:number; warnings:string[] }
-export const defaultConfig:LayoutConfig={width:7,depth:10,height:3,emphasis:'equilibrado',finish:'nogal',access:'reja'};
+export const defaultConfig:LayoutConfig={width:7,depth:10,height:3,emphasis:'equilibrado',finish:'roble',access:'reja'};
 export const formatNumber=(n:number)=>new Intl.NumberFormat('es-PE',{maximumFractionDigits:2}).format(n);
 export function validateConfig(c:LayoutConfig):string|null {
   if(!c||!['equilibrado','tienda','cuidado'].includes(c.emphasis)||!['roble','nogal'].includes(c.finish)||!['abierto','reja','puerta'].includes(c.access))return 'Selecciona un tipo de distribución y acabado válidos.';
@@ -59,13 +72,26 @@ export function createLayout(config:LayoutConfig):ShopLayout {
     const source=items.find(i=>i.id===id)!;const dims=size||source.size;
     const factor=source.kind==='shelf'?dims[2]/source.size[2]:source.kind==='counter'?dims[0]/source.size[0]:1;
     result.push({...source,id:newId||id,position,size:[...dims],prices:{economica:Math.round(source.prices.economica*factor),intermedia:Math.round(source.prices.intermedia*factor),completa:Math.round(source.prices.completa*factor)}});
+    return result[result.length-1];
   }
   const shelfStart=front+.85,shelfEnd=partition-2.1,span=Math.max(.35,shelfEnd-shelfStart);
   const modules=Math.max(1,Math.ceil(span/3.4)),length=(span-(modules-1)*.13)/modules;
   for(let n=0;n<modules;n++){
     const z=shelfStart+length/2+n*(length+.13);
-    put('alimentos',[-w/2+.34,0,z],[.48,1.9,length],n?'alimentos-'+n:'alimentos');
-    put('accesorios',[w/2-.34,0,z],[.48,1.9,length],n?'accesorios-'+n:'accesorios');
+    const left=put('alimentos',[-w/2+.34,0,z],[.48,1.9,length],n?'alimentos-'+n:'alimentos');
+    const right=put('accesorios',[w/2-.34,0,z],[.48,1.9,length],n?'accesorios-'+n:'accesorios');
+    const leftDepartment:Department=n%3===0?'alimentos':n%3===1?'juguetes':'higiene';
+    const rightDepartment:Department=modules===1?'boutique':n%2===0?'ropa':'accesorios';
+    const descriptions:Record<Department,{name:string;features:string}>={
+      alimentos:{name:'Alimentos y nutrición',features:'Sacos de alimento seco, conservas y sobres húmedos para perros y gatos. Los premios se concentran en la barra de snacks.'},
+      ropa:{name:'Boutique de ropa y bandanas',features:'Prendas en perchas: suéteres, impermeables, camisetas y bandanas. Repisas con ropa doblada y cestas para tallas pequeñas.'},
+      accesorios:{name:'Paseo, accesorios e higiene',features:'Arneses con dos anillas y cintas, collares con hebillas, correas colgadas, bolsos, comederos y una repisa de shampoo y cepillos.'},
+      juguetes:{name:'Juguetes y descanso',features:'Pelotas, aros, cuerdas con nudos, peluches, camas y mantas. Exhibición en cestas y repisas con categorías claras.'},
+      higiene:{name:'Higiene y cuidado',features:'Shampoos, cepillos, toallas y artículos de aseo separados de los alimentos.'},
+      boutique:{name:'Ropa, paseo y juguetes',features:'Módulo compacto combinado: prendas y bandanas en perchas, arneses, collares, correas, juguetes y artículos de higiene.'},
+    };
+    Object.assign(left,{department:leftDepartment,...descriptions[leftDepartment]});
+    Object.assign(right,{department:rightDepartment,...descriptions[rightDepartment]});
   }
   const counterWidth=Math.min(1.65,(w-1.4)/2),benchWidth=Math.min(1.3,(w-1.5)/2);
   put('caja',[w/2-.12-counterWidth/2,0,partition-1.05],[counterWidth,1.05,.65]);
@@ -73,7 +99,7 @@ export function createLayout(config:LayoutConfig):ShopLayout {
   if(w>=4.8&&d-serviceDepth>=5.5){
     const z=(shelfStart+shelfEnd)/2;
     put('isla',[w>=7.2?-1.1:0,0,z]);
-    if(w>=7.2)put('isla',[1.1,0,z],[.8,1.1,1.15],'isla-extra');
+    if(w>=7.2)Object.assign(put('isla',[1.1,0,z],[.8,1.1,1.15],'isla-extra'),{department:'juguetes',name:'Mesa de novedades y regalos',features:'Selección de pelotas, cuerdas, bandanas, comederos y regalos. Segunda isla reservada para artículos de paseo y juego.'});
   }
   const bathWidth=w<4.2?1.2:1.5,tableWidth=w<4.2?.95:1.2;
   put('tina',[-w/2+.2+bathWidth/2,0,back-.8],[bathWidth,1.1,.85]);
@@ -106,6 +132,7 @@ export function budgetLines(proposal: Proposal,layout:ShopLayout=defaultLayout):
     {id:'electrica',name:'LED, ventilación y protección diferencial',category:'Acabados',qty:1,unit:'lote',values:prices(Math.round(650*(.5+layout.config.width*layout.config.depth/80)),Math.round(950*(.5+layout.config.width*layout.config.depth/80)),Math.round(1350*(.5+layout.config.width*layout.config.depth/80)))},
     {id:'herramientas',name:'Máquina, tijeras, cepillos y utensilios',category:'Equipamiento',qty:1,unit:'kit',values:prices(450,800,1450)},
     {id:'stock',name:'Stock inicial según metros de exhibición',category:'Inventario inicial',qty:Math.max(.6,Math.round(layout.items.filter(i=>i.kind==='shelf').reduce((sum,i)=>sum+i.size[2],0)/5.6*100)/100),unit:'lote base',values:prices(900,1600,3000)},
+    {id:'ambientacion',name:'Ambientación: plantas, cuadros y lámparas decorativas',category:'Acabados',qty:Number(layout.retailArea.toFixed(2)),unit:'m² de tienda',values:prices(12,18,26)},
     {id:'rotulo',name:'Letrero e identidad básica',category:'Acabados',qty:1,unit:'ud.',values:prices(230,380,650)},
   ];
   return [...base, ...extras.map(i=>({id:i.id,name:i.name,category:i.category,quantity:i.qty,unit:i.unit,price:i.values[proposal],total:i.qty*i.values[proposal]}))];

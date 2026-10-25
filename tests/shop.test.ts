@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { canMove,moveWithCollisions,estimate,toggleGate,createLayout,snackAssortment,defaultConfig,validateConfig,proposals,type GateState } from '../src/lib/shop';
+import { canMove,moveWithCollisions,estimate,toggleGate,createLayout,departmentTarget,storeDepartments,snackAssortment,defaultConfig,validateConfig,proposals,type GateState } from '../src/lib/shop';
 const closed:GateState={entrance:false,service:false};
 const careOpen:GateState={...closed,service:true};
 const sizes=[[3.2,5.5],[3.5,6],[4,7],[5,8],[6,10],[7,10],[5,14],[10,7],[8,12],[12,20]];
@@ -98,4 +98,17 @@ test('puede alcanzarse el frente de baño, grooming y estantes mediante pasillos
    assert.ok(queue.some(p=>Math.hypot(p.x-target.x,p.z-target.z)<.18),`${width}x${depth}: acceso a ${i.id}`);
   }
  }
+});
+
+test('la tienda de 70 m² reserva exhibidores distintos para ropa, paseo, juego y alimentos',()=>{
+ const l=createLayout(defaultConfig);
+ for(const department of ['alimentos','ropa','accesorios','juguetes'])assert.ok(l.items.some(i=>i.department===department),department);
+ for(const department of storeDepartments){const item=departmentTarget(l.items,department.id);assert.ok(item&&l.items.includes(item),department.id);}
+ const small=createLayout({...defaultConfig,width:3.5,depth:6});
+ assert.ok(small.items.some(i=>i.department==='boutique'));
+ for(const department of storeDepartments)assert.ok(departmentTarget(small.items,department.id));
+ const large=createLayout({...defaultConfig,width:8,depth:12});
+ assert.equal(large.items.filter(i=>i.kind==='island'&&!i.department).length,1,'los snacks se concentran en una isla');
+ assert.ok(large.items.some(i=>i.id==='isla-extra'&&i.department==='juguetes'));
+ assert.ok(estimate('intermedia',l).lines.some(i=>i.id==='ambientacion'&&i.total>0));
 });

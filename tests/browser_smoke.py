@@ -2,7 +2,7 @@
 import json,os,math
 from pathlib import Path
 from playwright.sync_api import sync_playwright,expect
-URL=os.environ.get('BASE_URL','http://127.0.0.1:3003/index.html')
+URL=os.environ.get('BASE_URL','http://127.0.0.1:3004/index.html')
 OUT=Path(__file__).resolve().parents[1]/'playwright-results'
 OUT.mkdir(exist_ok=True)
 
@@ -35,6 +35,12 @@ with sync_playwright() as p:
  page.goto(URL,wait_until='networkidle');ready(page)
  expect(page.get_by_role('link',name='Brío Pet, inicio')).to_be_visible()
  expect(page.get_by_test_id('floor-area')).to_have_text('70m²')
+ # Each category shortcut focuses a different physical display in the 70 m² shop.
+ for label,title in [('Ropa','Boutique de ropa y bandanas'),('Paseo','Paseo, accesorios e higiene'),('Juguetes','Juguetes y descanso')]:
+  page.get_by_role('navigation',name='Explorar productos').get_by_role('button',name=label,exact=True).click()
+  expect(page.locator('.inspector h3')).to_have_text(title)
+  page.screenshot(path=str(OUT/f'brio-v4-{label.lower()}.png'))
+ expect(page.locator('.department-menu button')).to_have_count(5)
  expect(page.locator('.snack-range li')).to_have_count(6)
  page.get_by_role('button',name='Ver exhibidor',exact=True).click();ready(page)
  expect(page.locator('.inspector h3')).to_have_text('Barra de snacks y premios')
@@ -59,7 +65,8 @@ with sync_playwright() as p:
  assert large_total!=small_total
  expect(page.locator('.floor-plan')).to_have_attribute('viewBox','0 0 480 700')
  page.get_by_role('button',name='Ver mobiliario',exact=True).click()
- expect(page.locator('.object-list button').filter(has_text='Barra de snacks')).to_have_count(2)
+ expect(page.locator('.object-list button').filter(has_text='Barra de snacks')).to_have_count(1)
+ expect(page.locator('.object-list button').filter(has_text='Mesa de novedades')).to_have_count(1)
  page.get_by_role('button',name='Cerrar panel',exact=True).click()
  page.get_by_role('button',name='Vista aérea',exact=True).click();ready(page)
  page.screenshot(path=str(OUT/'brio-grande.png'))
@@ -104,6 +111,11 @@ with sync_playwright() as p:
  context=browser.new_context(viewport={'width':390,'height':844},device_scale_factor=1,is_mobile=True,has_touch=True)
  mobile=context.new_page();mobile.on('pageerror',lambda e:errors.append(str(e)))
  mobile.goto(URL,wait_until='networkidle');ready(mobile)
+ mobile.get_by_role('navigation',name='Explorar productos').get_by_role('button',name='Ropa',exact=True).click()
+ expect(mobile.locator('.department-dock')).to_be_visible()
+ expect(mobile.locator('.project-panel')).not_to_be_visible()
+ mobile.screenshot(path=str(OUT/'brio-v4-movil-ropa.png'))
+ mobile.get_by_role('button',name='Recorrer',exact=True).click()
  mobile.get_by_role('button',name='Medidas del local',exact=True).click()
  config(mobile,4,7,2.8);ready(mobile)
  expect(mobile.locator('.project-panel')).not_to_be_visible()

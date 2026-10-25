@@ -19,7 +19,7 @@ const Finish=createContext<'roble'|'nogal'>('nogal');
 const LabelTextures=createContext<Map<string,THREE.CanvasTexture>>(new Map());
 function Box({size,position=[0,0,0],color='#eee9dd',roughness=.65,metalness=0, ...props}:{size:Vec3;position?:Vec3;color?:string;roughness?:number;metalness?:number;rotation?:Vec3;castShadow?:boolean}) {
   const finish=useContext(Finish),map=color===wood?surface(finish):undefined;
-  const material=<meshStandardMaterial color={map?(finish==='nogal'?'#79513a':'#dbc7a7'):color} map={map} bumpMap={map} bumpScale={.003} roughness={metalness>.5?.24:roughness} metalness={metalness}/>;
+  const material=<meshStandardMaterial color={map?(finish==='nogal'?'#79513a':'#c1b39c'):color} map={map} bumpMap={map} bumpScale={.003} roughness={metalness>.5?.24:roughness} metalness={metalness}/>;
   return Math.min(...size)>.045?<RoundedBox args={size} radius={Math.min(.018,Math.min(...size)/5)} smoothness={2} position={position} castShadow receiveShadow {...props}>{material}</RoundedBox>:<mesh position={position} castShadow receiveShadow {...props}><boxGeometry args={size}/>{material}</mesh>;
 }
 function Cylinder({position,radius=.035,height=.7,color=metal,rotation=[0,0,0]}:{position:Vec3;radius?:number;height?:number;color?:string;rotation?:Vec3}) {
@@ -98,8 +98,8 @@ function Architecture({layout,mode,roof,gates,onGate}:Pick<SceneProps,'layout'|'
     {full&&<>
       <Box size={[serviceWidth,h-2.24,.14]} position={[0,(h+2.24)/2,partition]} color="#b6bbae"/>
       <Label text="BAÑO Y PELUQUERÍA" position={[0,2.46,partition-.081]} size={[Math.min(2.7,w-.3),.26]} bg={dark} fg="#fff9e8"/>
-      <Label text="RECEPCIÓN" position={[w*.3,1.85,partition-.081]} size={[Math.min(1.4,w*.32),.2]} bg="#b6bbae" fg="#223b35"/>
-      <Label text="ESPERA" position={[-w*.3,1.65,partition-.081]} size={[Math.min(1.15,w*.3),.2]} bg="#b6bbae" fg="#223b35"/>
+      <Label text="RECEPCIÓN" position={[w*.3,1.85,partition-.115]} size={[Math.min(1.4,w*.32),.2]} bg="#b6bbae" fg="#223b35"/>
+      <Label text="ESPERA" position={[-w*.3,1.65,partition-.115]} size={[Math.min(1.15,w*.3),.2]} bg="#b6bbae" fg="#223b35"/>
     </>}
     <Gate position={[0,0,partition]} width={serviceWidth} height={doorHeight} open={gates.service} onClick={()=>onGate('service')}/>
     <Box size={[w,wh,.14]} position={[0,wh/2,back+.07]} color="#ded9cf"/>
@@ -183,7 +183,117 @@ function Bottle({position,color}:{position:Vec3;color:string}) {
     <Label text="BRÍO · AVENA" position={[0,.12,-.061]} size={[.1,.075]} bg="#ece8d9" fg={dark}/>
   </group>;
 }
+const boutiqueColors=['#c67d69','#d7b260','#73948b','#7c8faa','#d2b3ae','#e5d8b9'];
+function Tube({points,color=metal,radius=.008}:{points:Vec3[];color?:string;radius?:number}) {
+  const coordinates=JSON.stringify(points);
+  const curve=useMemo(()=>new THREE.CatmullRomCurve3((JSON.parse(coordinates) as Vec3[]).map(p=>new THREE.Vector3(...p))),[coordinates]);
+  return <mesh castShadow><tubeGeometry args={[curve,20,radius,7,false]}/><meshStandardMaterial color={color} roughness={.45} metalness={color===metal?.8:0}/></mesh>;
+}
+function Garment({color,variant=0}:{color:string;variant?:number}) {
+  const geometry=useMemo(()=>{
+    const s=new THREE.Shape();s.moveTo(-.055,0);s.quadraticCurveTo(0,-.038,.055,0);s.lineTo(.112,-.026);s.lineTo(.18,-.12);s.lineTo(.126,-.16);s.lineTo(.103,-.12);s.lineTo(.103,-.36);s.quadraticCurveTo(0,-.4,-.103,-.36);s.lineTo(-.103,-.12);s.lineTo(-.126,-.16);s.lineTo(-.18,-.12);s.lineTo(-.112,-.026);s.closePath();
+    const g=new THREE.ExtrudeGeometry(s,{depth:.018,bevelEnabled:true,bevelSegments:2,bevelSize:.006,bevelThickness:.005,steps:1});g.translate(0,0,-.009);return g;
+  },[]);
+  useEffect(()=>()=>geometry.dispose(),[geometry]);
+  return <group>
+    <Tube points={[[0,.05,.012],[-.12,-.012,.012],[-.14,-.04,.012],[.14,-.04,.012],[.12,-.012,.012],[0,.05,.012]]} radius={.005} color="#bf9f64"/>
+    <Tube points={[[0,.05,.012],[0,.12,.012],[.025,.145,.012],[.04,.128,.012],[.025,.105,.012]]} radius={.005} color="#bf9f64"/>
+    <mesh geometry={geometry} castShadow receiveShadow><meshPhysicalMaterial color={color} roughness={variant%3===1?.32:.9} clearcoat={variant%3===1?.35:0} bumpMap={variant%3===1?undefined:surface('fabric')} bumpScale={.002}/></mesh>
+    {variant%3===0&&[-.16,-.21,-.26].map(y=><Box key={y} size={[.204,.016,.004]} position={[0,y,-.018]} color="#fff1d9"/>)}
+    {variant%3===1&&<><mesh position={[0,.016,.04]} rotation={[Math.PI/2,0,0]} scale={[1,.7,1]}><torusGeometry args={[.067,.025,10,20,Math.PI]}/><meshStandardMaterial color={color}/></mesh><Box size={[.008,.29,.004]} position={[0,-.19,-.02]} color="#e5d8b9"/></>}
+    {variant%3===2&&<Paw position={[0,-.19,-.022]} rotation={[0,Math.PI,0]} scale={.17} color="#fff1d9"/>}
+    <Box size={[.2,.018,.025]} position={[0,-.365,0]} color={variant%3===0?'#fff1d9':color}/>
+  </group>;
+}
+function Bandana({color}:{color:string}) {return <group>
+  <mesh castShadow><bufferGeometry><bufferAttribute attach="attributes-position" args={[new Float32Array([-.14,0,0,.14,0,0,0,-.22,0]),3]}/><bufferAttribute attach="attributes-normal" args={[new Float32Array([0,0,-1,0,0,-1,0,0,-1]),3]}/></bufferGeometry><meshStandardMaterial color={color} side={THREE.DoubleSide} roughness={.95} bumpMap={surface('fabric')} bumpScale={.002}/></mesh>
+  <Tube points={[[-.14,0,0],[0,.025,0],[.14,0,0]]} color="#e6d5b3" radius={.007}/>
+  <Paw position={[0,-.1,-.005]} rotation={[0,Math.PI,0]} scale={.12} color="#fff3dc"/>
+</group>;}
+function Harness({color}:{color:string}) {return <group>
+  {[-.045,-.23].map((y,i)=><mesh key={y} position={[0,y,0]} scale={[1,i?1.1:.75,1]} castShadow><torusGeometry args={[i?.08:.06,.014,8,24]}/><meshStandardMaterial color={color} roughness={.8}/></mesh>)}
+  {[-1,1].map(side=><Box key={side} size={[.02,.19,.022]} position={[side*.055,-.14,0]} color={color} rotation={[0,0,-side*.1]}/>)}
+  <Box size={[.045,.035,.029]} position={[.055,-.14,-.007]} color="#d8bd7c" metalness={.75}/>
+  <mesh position={[0,.02,0]}><torusGeometry args={[.018,.004,6,16]}/><meshStandardMaterial color={metal} metalness={.8} roughness={.25}/></mesh>
+</group>;}
+function Collar({color}:{color:string}) {return <group>
+  <mesh castShadow><torusGeometry args={[.075,.015,8,24]}/><meshStandardMaterial color={color} roughness={.8}/></mesh>
+  <Box size={[.04,.025,.034]} position={[.055,-.048,-.007]} color="#d8bd7c" metalness={.75}/>
+  <mesh position={[0,-.102,0]}><circleGeometry args={[.019,16]}/><meshStandardMaterial color="#d8bd7c" metalness={.7}/></mesh>
+</group>;}
+function Leash({color}:{color:string}) {return <group>
+  <Tube points={[[0,0,0],[-.055,-.035,0],[-.065,-.14,0],[0,-.18,0],[.065,-.14,0],[.055,-.035,0],[0,0,0],[.012,-.2,0],[.03,-.42,0]]} radius={.012} color={color}/>
+  <Box size={[.02,.055,.015]} position={[.03,-.45,0]} color="#d8bd7c" metalness={.8}/>
+</group>;}
+function Toy({variant=0,color=mint}:{variant?:number;color?:string}) {
+  if(variant%4===0)return <group><mesh castShadow><sphereGeometry args={[.075,16,12]}/><meshStandardMaterial color={color} roughness={.9}/></mesh><mesh rotation={[.5,.2,.5]}><torusGeometry args={[.075,.004,6,24]}/><meshStandardMaterial color="#f4ebd1"/></mesh></group>;
+  if(variant%4===1)return <group rotation={[0,0,.4]}><Tube points={[[-.1,0,0],[-.04,.014,0],[.04,-.014,0],[.1,0,0]]} color={color} radius={.023}/>{[-.1,.1].map(x=><mesh key={x} position={[x,0,0]} castShadow><sphereGeometry args={[.035,12,8]}/><meshStandardMaterial color="#eee2bb" roughness={1}/></mesh>)}</group>;
+  if(variant%4===2)return <mesh castShadow rotation={[Math.PI/2,.3,0]}><torusGeometry args={[.073,.022,10,24]}/><meshStandardMaterial color={color} roughness={.6}/></mesh>;
+  return <group>
+    <mesh position={[0,.015,0]} scale={[.07,.09,.05]} castShadow><sphereGeometry args={[1,14,10]}/><meshStandardMaterial color={color} roughness={1} bumpMap={surface('fabric')} bumpScale={.003}/></mesh>
+    <mesh position={[0,.115,0]} castShadow><sphereGeometry args={[.055,14,10]}/><meshStandardMaterial color={color} roughness={1}/></mesh>
+    {[-1,1].map(side=><group key={side}><mesh position={[side*.045,.15,0]}><sphereGeometry args={[.023,10,8]}/><meshStandardMaterial color={color}/></mesh><mesh position={[side*.073,.03,0]} scale={[.025,.05,.025]}><sphereGeometry args={[1,10,8]}/><meshStandardMaterial color={color}/></mesh><mesh position={[side*.02,.12,-.049]}><sphereGeometry args={[.005,6,4]}/><meshStandardMaterial color={dark}/></mesh></group>)}
+    <mesh position={[0,.099,-.05]}><sphereGeometry args={[.01,8,6]}/><meshStandardMaterial color={dark}/></mesh>
+  </group>;
+}
+function Bowl({color}:{color:string}) {
+  const profile=useMemo(()=>[new THREE.Vector2(.11,0),new THREE.Vector2(.105,.02),new THREE.Vector2(.09,.075),new THREE.Vector2(.078,.075),new THREE.Vector2(.083,.027),new THREE.Vector2(0,.025)],[]);
+  return <mesh castShadow><latheGeometry args={[profile,24]}/><meshStandardMaterial color={color} roughness={.3} metalness={.3}/></mesh>;
+}
+function PetBedSample({color}:{color:string}){return <group>
+  <mesh position={[0,.07,0]} rotation={[Math.PI/2,0,0]} scale={[1,.86,1]} castShadow><torusGeometry args={[.13,.035,10,28]}/><meshStandardMaterial color={color} roughness={.98} bumpMap={surface('fabric')} bumpScale={.004}/></mesh>
+  <mesh position={[0,.045,0]} scale={[.12,.04,.105]} castShadow><sphereGeometry args={[1,18,12]}/><meshStandardMaterial color="#e9d9b8" roughness={1}/></mesh>
+</group>;}
+function WalkingBag({color}:{color:string}){return <group>
+  <RoundedBox args={[.16,.19,.07]} radius={.024} smoothness={3} position={[0,-.12,0]} castShadow><meshStandardMaterial color={color} bumpMap={surface('fabric')} bumpScale={.002} roughness={.9}/></RoundedBox>
+  <Tube points={[[-.07,-.06,0],[-.08,.1,0],[0,.15,0],[.08,.1,0],[.07,-.06,0]]} color={color} radius={.008}/>
+  <Paw position={[0,-.12,-.04]} rotation={[0,Math.PI,0]} scale={.12} color="#f4e5c7"/>
+</group>;}
+function FoldedClothes({color}:{color:string}){return <group>{[0,1,2].map(i=><RoundedBox key={i} args={[.27,.045,.2]} radius={.015} smoothness={2} position={[0,.025+i*.047,0]} castShadow><meshStandardMaterial color={i===1?'#e6d6b3':color} bumpMap={surface('fabric')} bumpScale={.003} roughness={.95}/></RoundedBox>)}</group>;}
+function WallDisplay({item}:{item:ShopItem}) {
+  const d=item.size[2],side=item.position[0]<0?1:-1,department=item.department||'boutique';
+  const clothes=department==='ropa'||department==='boutique',toys=department==='juguetes';
+  const n=Math.max(1,Math.min(7,Math.floor(d/.43))),spacing=d/n;
+  const colors=department==='ropa'?'#dec6b9':toys?'#d7d6b7':'#b7ccc2';
+  const title=department==='ropa'?'ROPA Y BANDANAS':toys?'JUEGO Y DESCANSO':department==='boutique'?'ROPA · PASEO · JUEGO':department==='higiene'?'HIGIENE Y CUIDADO':'PASEO Y ACCESORIOS';
+  return <group rotation={[0,-side*Math.PI/2,0]}>
+    <Box size={[d,1.85,.045]} position={[0,1.02,.2]} color={colors}/>
+    {Array.from({length:Math.max(2,Math.floor(d/.14))},(_,i)=><Box key={i} size={[.015,1.75,.012]} position={[-d/2+.06+i*.14,1.02,.168]} color="#f1e6ce"/>)}
+    <Box size={[d,.12,.48]} position={[0,.08,0]} color={wood}/>
+    <Box size={[d,.27,.06]} position={[0,2.04,.12]} color={department==='ropa'?'#a45e4e':dark}/>
+    <Label text={title} position={[0,2.04,.084]} size={[d-.04,.2]} bg={department==='ropa'?'#a45e4e':dark} fg="#fff7e2"/>
+    {clothes?<>
+      <Cylinder position={[0,1.83,-.08]} radius={.012} height={d-.06} rotation={[0,0,Math.PI/2]} color="#c2a16a"/>
+      <Cylinder position={[0,1.12,-.08]} radius={.012} height={d-.06} rotation={[0,0,Math.PI/2]} color="#c2a16a"/>
+      {Array.from({length:n},(_,i)=><group key={i} position={[-d/2+spacing*(i+.5),1.69,-.09]} scale={Math.min(1,spacing/.4)}><Garment color={boutiqueColors[i%6]} variant={i}/></group>)}
+      {Array.from({length:n},(_,i)=><group key={i} position={[-d/2+spacing*(i+.5),.98,-.09]} scale={Math.min(1,spacing/.4)}>{department==='boutique'&&(n===1||i%3!==0)?n===1||i%3===1?<Harness color={boutiqueColors[i%6]}/>:<Leash color={boutiqueColors[i%6]}/>:i%2?<Garment color={boutiqueColors[(i+2)%6]} variant={i+1}/>:<Bandana color={boutiqueColors[(i+3)%6]}/>}</group>)}
+      <Box size={[d,.035,.44]} position={[0,.4,0]} color={wood}/>
+      {Array.from({length:n},(_,i)=><group key={i} position={[-d/2+spacing*(i+.5),.43,0]} scale={Math.min(1,spacing/.34)}>{department==='boutique'&&(n===1||i%2)?<group><group position={[n===1?-.065:0,n===1?.08:0,0]}><Toy variant={n===1?3:i} color={boutiqueColors[i%6]}/></group>{n===1&&<Bottle position={[.08,0,0]} color={mint}/>}</group>:<FoldedClothes color={boutiqueColors[i%6]}/>}</group>)}
+    </>:toys?<>
+      {[.35,.88,1.4].map((y,row)=><group key={y}>
+        <Box size={[d,.04,.46]} position={[0,y,0]} color={wood}/>
+        {Array.from({length:n},(_,i)=><group key={i} position={[-d/2+spacing*(i+.5),y+.13,0]} scale={Math.min(1,spacing/.32)}>{row===0?i%2?<FoldedClothes color={boutiqueColors[i%6]}/>:<PetBedSample color={boutiqueColors[i%6]}/>:<Toy variant={i+row} color={boutiqueColors[i%6]}/>}</group>)}
+      </group>)}
+      <Label text="PELUCHES · CUERDAS · PELOTAS" position={[0,1.78,.16]} size={[d-.08,.13]} bg={colors}/>
+    </>:<>
+      {[1.6,1.06].map((y,row)=><group key={y}>{Array.from({length:n},(_,i)=><group key={i} position={[-d/2+spacing*(i+.5),y,-.06]} scale={Math.min(1,spacing/.32)}>
+        <Cylinder position={[0,.07,.07]} radius={.008} height={.15} rotation={[Math.PI/2,0,0]} color="#c2a16a"/>
+        {department==='higiene'?<Bottle position={[0,-.24,0]} color={boutiqueColors[i%6]}/>:row===0?i%2?<Harness color={boutiqueColors[i%6]}/>:<Collar color={boutiqueColors[i%6]}/>:i%3===1?<WalkingBag color={boutiqueColors[i%6]}/>:i%3===2?<Bandana color={boutiqueColors[i%6]}/>:<Leash color={boutiqueColors[i%6]}/>}
+      </group>)}</group>)}
+      <Box size={[d,.04,.44]} position={[0,.36,0]} color={wood}/>
+      {Array.from({length:n},(_,i)=><group key={i} position={[-d/2+spacing*(i+.5),.39,0]} scale={Math.min(1,spacing/.32)}>{i%2?<Bottle position={[0,0,0]} color={boutiqueColors[i%6]}/>:<Bowl color={boutiqueColors[i%6]}/>}</group>)}
+    </>}
+    <Box size={[d,.025,.07]} position={[0,1.91,.12]} color="#dfbd7e"/>
+  </group>;
+}
+function GiftIsland(){return <>
+  <Box size={[.8,.12,1.15]} position={[0,.14,0]} color={wood}/><Box size={[.8,.06,1.15]} position={[0,.78,0]} color="#c6d2bd"/>
+  {[-.29,.29].flatMap(x=>[-.46,.46].map(z=><Cylinder key={`${x}-${z}`} position={[x,.42,z]} height={.72} radius={.018} color="#c2a16a"/>))}
+  {Array.from({length:6},(_,i)=><group key={i} position={[i<3?-.19:.19,.94,-.35+(i%3)*.35]}><Toy variant={i} color={boutiqueColors[i]}/></group>)}
+  <Label text="NOVEDADES" position={[0,.67,-.583]} size={[.7,.18]} bg={dark} fg="#fff5dd"/>
+</>;}
 function Shelf({item,proposal}:{item:ShopItem;proposal:Proposal}) {
+  if(item.department&&item.department!=='alimentos')return <WallDisplay item={item}/>;
   const d=item.size[2], side=item.position[0]<0?1:-1;
   const count=Math.max(2,Math.min(proposal==='economica'?7:10,Math.floor(d/.29)));
   return <>
@@ -193,13 +303,13 @@ function Shelf({item,proposal}:{item:ShopItem;proposal:Proposal}) {
       <Box size={[.48,.035,d]} position={[0,y,0]} color={j===4?dark:wood}/>
       {j<4&&Array.from({length:count},(_,i)=>{
         const z=-d/2+.16+i*(d-.32)/(count-1);
-        return item.id.startsWith('alimentos')?j===1?<FoodTin key={i} position={[0,y+.025,z]} side={-side}/>:j===3?<group key={i} position={[0,y+.025,z]} rotation={[0,side*Math.PI/2,0]}><SnackJar product={snackAssortment[i%6]} index={i%6}/></group>:<Bag key={i} position={[side*.015,y+.025,z]} color={['#bb6d44','#406c5b','#d7bb7f','#6e838c'][(i+j)%4]} label={j===0?(i%2?'PERRO':'GATO'):(i%2?'SNACK':'HÚMEDO')} side={side}/>
+        return item.id.startsWith('alimentos')?j===1?<FoodTin key={i} position={[0,y+.025,z]} side={-side}/>:j===3?<Bag key={i} position={[0,y+.025,z]} color={boutiqueColors[i%6]} label={i%2?'GATO':'PERRO'} side={side}/>:<Bag key={i} position={[side*.015,y+.025,z]} color={['#bb6d44','#406c5b','#d7bb7f','#6e838c'][(i+j)%4]} label={j===0?(i%2?'PERRO':'GATO'):(i%2?'SNACK':'HÚMEDO')} side={side}/>
           : j<2?<Bottle key={i} position={[0,y+.025,z]} color={['#bfd0c3','#e1af79','#d5d5c7'][i%3]}/>
           : j===2?<mesh key={i} position={[0,y+.14,z]} rotation={[0,Math.PI/2,0]}><torusGeometry args={[.09,.018,8,20]}/><meshStandardMaterial color={i%2?orange:dark}/></mesh>
           :<mesh key={i} position={[0,y+.12,z]}><sphereGeometry args={[.095,16,12]}/><meshStandardMaterial color={i%2?orange:mint}/></mesh>;
       })}
     </group>)}
-    <Label text={item.id.startsWith('alimentos')?'ALIMENTOS Y PREMIOS':'HIGIENE Y ACCESORIOS'} position={[side*.248,2.04,0]} size={[d-.12,.22]} rotation={[0,side*Math.PI/2,0]} bg={dark} fg="#f5f1e7"/>
+    <Label text={item.id.startsWith('alimentos')?'ALIMENTOS Y NUTRICIÓN':'HIGIENE Y ACCESORIOS'} position={[side*.248,2.04,0]} size={[d-.12,.22]} rotation={[0,side*Math.PI/2,0]} bg={dark} fg="#f5f1e7"/>
     {item.id.startsWith('accesorios')&&[0,1,2].map(i=><group key={i} position={[side*.25,1.15,-d*.28+i*d*.25]}>
       <mesh rotation={[0,Math.PI/2,0]}><torusGeometry args={[.095,.012,8,24]}/><meshStandardMaterial color={i%2?orange:dark}/></mesh>
       <Box size={[.025,.25,.022]} position={[0,-.16,0]} color={i%2?orange:dark}/>
@@ -217,11 +327,11 @@ function Counter(){return <>
   <Box size={[.035,.18,.035]} position={[.35,1.12,.05]} color={dark}/>
   <Box size={[.38,.25,.035]} position={[.35,1.28,.07]} color={dark} rotation={[-.15,0,0]}/>
   <Label text="BRÍO / CAJA" position={[.35,1.28,.045]} size={[.33,.18]} bg="#a5bcab"/>
-  <Box size={[.12,.06,.18]} position={[-.42,1.055,0]} color={dark}/>
+  <Box size={[.12,.06,.18]} position={[-.42,1.055,0]} color={dark}/><group position={[-.66,1.02,.02]}><Foliage scale={.23}/></group>
 </>;}
 function Bench(){return <>
   <Box size={[1.3,.12,.54]} position={[0,.43,0]} color={orange}/>
-  <Box size={[1.3,.32,.09]} position={[0,.66,.22]} color={orange}/>
+  <Box size={[1.3,.32,.09]} position={[0,.66,.22]} color={orange}/>{[-.36,.36].map((x,i)=><RoundedBox key={x} args={[.32,.28,.1]} radius={.045} smoothness={3} position={[x,.64,.13]} rotation={[-.15,0,i?.12:-.12]} castShadow><meshStandardMaterial color={i?'#dbbe8d':'#8ca18b'} bumpMap={surface('fabric')} bumpScale={.004} roughness={.95}/></RoundedBox>)}
   {[-.52,.52].flatMap(x=>[-.17,.17].map(z=><Cylinder key={`${x}${z}`} position={[x,.2,z]} radius={.025} height={.4} color={dark}/>))}
 </>;}
 function Bath({proposal}:{proposal:Proposal}){
@@ -293,12 +403,65 @@ function Island({proposal}:{proposal:Proposal}){return <>
   </group>)}
   {[-1,1].map(side=><Label key={side} text="SNACK BAR" position={[0,.97,side*.583]} size={[.7,.18]} rotation={[0,side<0?Math.PI:0,0]} bg={dark} fg="#fff9e8"/>)}
 </>;}
+function Foliage({scale=.3}:{scale?:number}) {return <group scale={scale}>
+  <mesh position={[0,.12,0]}><cylinderGeometry args={[.17,.12,.24,20]}/><meshStandardMaterial color="#c3a47e" roughness={.95}/></mesh>
+  {[0,1,2,3,4,5,6].map(i=><group key={i} rotation={[0,i*2.4,0]}>
+    <Tube points={[[0,.18,0],[.07,.4,0],[.16,.52+(i%3)*.07,0]]} color="#476c48" radius={.012}/>
+    <mesh position={[.14,.48+(i%3)*.07,0]} rotation={[0,0,-.55]} scale={[.075,.17,.025]} castShadow><sphereGeometry args={[1,10,7]}/><meshStandardMaterial color={i%2?'#6c8756':'#3e6851'} roughness={.9}/></mesh>
+  </group>)}
+</group>;}
+function ArtPrint({cat=false}:{cat?:boolean}) {
+  const cache=useContext(LabelTextures);
+  const map=useMemo(()=>{
+    const key=cat?'art-cat':'art-dog',old=cache.get(key);if(old)return old;
+    const canvas=document.createElement('canvas');canvas.width=512;canvas.height=640;const c=canvas.getContext('2d')!;
+    c.fillStyle='#f4e8ce';c.fillRect(0,0,512,640);c.fillStyle=cat?'#a7b8a2':'#c58b70';c.beginPath();c.roundRect(45,40,422,490,[210,210,15,15]);c.fill();
+    c.fillStyle=cat?'#d5b98b':'#9e6649';
+    if(cat){c.beginPath();c.moveTo(118,265);c.lineTo(125,130);c.lineTo(219,225);c.lineTo(292,225);c.lineTo(387,130);c.lineTo(395,265);c.closePath();c.fill();}
+    else{c.beginPath();c.ellipse(132,300,55,120,.12,0,Math.PI*2);c.fill();c.beginPath();c.ellipse(380,300,55,120,-.12,0,Math.PI*2);c.fill();}
+    c.fillStyle=cat?'#e2cda8':'#e0ba90';c.beginPath();c.ellipse(256,325,140,155,0,0,Math.PI*2);c.fill();
+    c.fillStyle='#33483d';[207,305].forEach(x=>{c.beginPath();c.ellipse(x,306,cat?13:11,cat?23:15,0,0,Math.PI*2);c.fill();});
+    c.fillStyle='#f4e8ce';c.beginPath();c.ellipse(256,386,67,52,0,0,Math.PI*2);c.fill();c.fillStyle='#33483d';c.beginPath();c.moveTo(236,365);c.lineTo(276,365);c.lineTo(256,386);c.closePath();c.fill();c.strokeStyle='#33483d';c.lineWidth=4;c.beginPath();c.moveTo(256,385);c.lineTo(256,403);c.stroke();
+    c.font='bold 32px Georgia';c.textAlign='center';c.fillText(cat?'Pequeños compañeros':'Grandes amigos',256,580);
+    const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=8;cache.set(key,texture);return texture;
+  },[cat,cache]);
+  return <group><Box size={[.5,.64,.04]} color={wood}/><mesh position={[0,0,-.026]} rotation={[0,Math.PI,0]}><planeGeometry args={[.45,.59]}/><meshBasicMaterial map={map} toneMapped={false}/></mesh></group>;
+}
+function ArchPanel({width,height,color}:{width:number;height:number;color:string}) {
+  const geometry=useMemo(()=>{const s=new THREE.Shape();s.moveTo(-width/2,.08);s.lineTo(-width/2,height-width/2);s.absarc(0,height-width/2,width/2,Math.PI,0,true);s.lineTo(width/2,.08);s.closePath();return new THREE.ShapeGeometry(s);},[width,height]);
+  useEffect(()=>()=>geometry.dispose(),[geometry]);
+  return <mesh geometry={geometry}><meshStandardMaterial color={color} roughness={.88} side={THREE.DoubleSide}/></mesh>;
+}
+function Pendant({height}:{height:number}){return <>
+  <Cylinder position={[0,(height+2.28)/2,0]} radius={.008} height={Math.max(.06,height-2.28)} color={dark}/>
+  <mesh position={[0,2.25,0]} castShadow><cylinderGeometry args={[.11,.23,.18,24,1,true]}/><meshStandardMaterial color="#c9ad7d" roughness={.95} side={THREE.DoubleSide}/></mesh>
+  {Array.from({length:12},(_,i)=><Box key={i} size={[.012,.19,.012]} position={[Math.cos(i*Math.PI/6)*.175,2.25,Math.sin(i*Math.PI/6)*.175]} color="#e0c69b" rotation={[Math.sin(i*Math.PI/6)*.5,0,-Math.cos(i*Math.PI/6)*.5]}/>)}
+  <mesh position={[0,2.17,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[.20,24]}/><meshStandardMaterial color="#ffe5b5" emissive="#ffd59c" emissiveIntensity={1.7} side={THREE.DoubleSide}/></mesh>
+</>;}
+function RetailDecor({layout,full}:{layout:ShopLayout;full:boolean}) {
+  const {width:w,height:h}=layout.config,segment=(w-layout.serviceWidth)/2,archWidth=Math.min(1.65,segment-.14),archX=(w+layout.serviceWidth)/4;
+  return <>
+    {[-1,1].map(side=><group key={side} position={[side*archX,0,layout.partition-.093]}>
+      <ArchPanel width={archWidth} height={Math.min(h-.14,2.65)} color={side>0?'#dbbaa4':'#c2cdb5'}/>
+      <group position={[0,Math.min(2.27,h-.45),-.035]} scale={Math.min(1,archWidth/.7)}><ArtPrint cat={side<0}/></group>
+    </group>)}
+    {layout.items.filter(i=>i.kind==='shelf').map(item=><group key={item.id} position={item.position} rotation={[0,(item.position[0]<0?-1:1)*Math.PI/2,0]}>
+      <group position={[-item.size[2]/2+.16,2.19,.11]}><Foliage scale={.25}/></group>
+      <Tube points={[[item.size[2]/2-.08,2.18,.1],[item.size[2]/2-.12,1.99,.08],[item.size[2]/2-.06,1.78,.09]]} color="#57774d" radius={.009}/>
+      {[0,1,2,3].map(n=><mesh key={n} position={[item.size[2]/2-.08+(n%2?-.045:.025),2.13-n*.09,.08]} rotation={[0,0,n%2?.5:-.4]} scale={[.035,.06,.015]}><sphereGeometry args={[1,8,6]}/><meshStandardMaterial color={n%2?'#57774d':'#779459'}/></mesh>)}
+    </group>)}
+    {full&&[-1,1].map(side=><group key={side} position={[side*Math.min(1.65,w*.24),0,layout.front+Math.min(2.5,layout.config.depth*.3)]}><Pendant height={h-.06}/><pointLight position={[0,2.14,0]} intensity={2.6} color="#ffd8a1" distance={4} decay={2}/></group>)}
+    {/* Flat floor medallions mark the arrival without obstructing circulation. */}
+    <mesh position={[0,-.01,layout.front+.45]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[Math.min(.42,w*.1),48]}/><meshStandardMaterial color="#bc8a6a" roughness={.95}/></mesh>
+    <Paw position={[0,-.006,layout.front+.45]} scale={.38} color="#f2e7cc"/>
+  </>;
+}
 function Furniture({item,selected,proposal,onSelect}: {item:ShopItem;selected:boolean;proposal:Proposal;onSelect:(id:string)=>void}) {
   const pick=(e:ThreeEvent<MouseEvent>)=>{e.stopPropagation();onSelect(item.id);};
   const original:Record<string,Vec3>={counter:[1.65,1.05,.65],bench:[1.3,.82,.55],bath:[1.5,1.1,.85],groom:[1.2,.85,.65],storage:[1.05,2.1,.5]};
   const base=original[item.kind];const scale:Vec3=base?[item.size[0]/base[0],1,item.size[2]/base[2]]:[1,1,1];
   return <group position={item.position} onClick={pick} onPointerOver={e=>{e.stopPropagation();document.body.style.cursor='pointer';}} onPointerOut={()=>{document.body.style.cursor='auto';}}>
-    <group scale={scale} rotation={[0,item.kind==='counter'||item.kind==='bench'?Math.PI:0,0]}>{item.kind==='shelf'?<Shelf item={item} proposal={proposal}/>:item.kind==='counter'?<Counter/>:item.kind==='bench'?<Bench/>:item.kind==='bath'?<Bath proposal={proposal}/>:item.kind==='groom'?<Groom proposal={proposal}/>:item.kind==='dryer'?<Dryer/>:item.kind==='storage'?<Cabinet/>:item.kind==='towels'?<Cabinet towels/>:item.kind==='plant'?<Plant/>:item.kind==='bed'?<Bed/>:<Island proposal={proposal}/>}</group>
+    <group scale={scale} rotation={[0,item.kind==='counter'||item.kind==='bench'?Math.PI:0,0]}>{item.kind==='shelf'?<Shelf item={item} proposal={proposal}/>:item.kind==='counter'?<Counter/>:item.kind==='bench'?<Bench/>:item.kind==='bath'?<Bath proposal={proposal}/>:item.kind==='groom'?<Groom proposal={proposal}/>:item.kind==='dryer'?<Dryer/>:item.kind==='storage'?<Cabinet/>:item.kind==='towels'?<Cabinet towels/>:item.kind==='plant'?<Plant/>:item.kind==='bed'?<Bed/>:item.department==='juguetes'?<GiftIsland/>:<Island proposal={proposal}/>}</group>
     {selected&&<mesh position={[0,item.size[1]/2,0]}><boxGeometry args={[item.size[0]+.06,item.size[1]+.06,item.size[2]+.06]}/><meshBasicMaterial color={orange} transparent opacity={.065} depthWrite={false}/><Edges threshold={30} color={orange}/></mesh>}
   </group>;
 }
@@ -313,17 +476,24 @@ function CameraRig({layout,mode,selected,reset,motion,gates,onLock,onPosition}:S
   useEffect(()=>{
     keys.current.clear();
     if(mode==='walk') {
-      const startX=layout.items.some(i=>i.kind==='island')?-1.05:0;const yaw=Math.PI;camera.position.set(startX,1.65,layout.front+1.4);camera.rotation.order='YXZ';camera.rotation.set(-.045,yaw,0);angles.current={yaw,pitch:-.045};position.current={x:startX,z:layout.front+1.4};onPosition(startX,layout.front+1.4);
+      const boutiqueView=layout.config.width>=6&&layout.config.depth>=9;
+      const startX=boutiqueView?0:layout.items.some(i=>i.kind==='island')?-1.05:0,startZ=layout.front+(boutiqueView?.5:1.4),yaw=Math.PI+(boutiqueView?.92:0),pitch=boutiqueView?-.1:-.045;
+      camera.position.set(startX,1.65,startZ);camera.rotation.order='YXZ';camera.rotation.set(pitch,yaw,0);angles.current={yaw,pitch};position.current={x:startX,z:startZ};onPosition(startX,startZ);
     } else {const aspect=gl.domElement.clientWidth/Math.max(1,gl.domElement.clientHeight);const scale=aspect<1?1.35/Math.max(aspect,.4):1;const factor=Math.max(layout.config.width/5,layout.config.depth/8);camera.position.set(7*scale*factor,6*scale*factor,-9*scale*factor);camera.lookAt(0,0,0);if(orbit.current){orbit.current.target.set(0,.2,0);orbit.current.update();}}
     if(document.pointerLockElement)document.exitPointerLock();
   },[mode,reset,camera,onPosition,layout,gl]);
   useEffect(()=>{
     if(mode!=='orbit'||!selected||!orbit.current)return;
     const item=layout.items.find(i=>i.id===selected);if(!item)return;
-    const p=new THREE.Vector3(...item.position);p.y=.8;
+    const p=new THREE.Vector3(...item.position);p.y=item.kind==='shelf'?1.1:.8;
     orbit.current.target.copy(p);
-    const offset=item.position[0]<-1?[3,2,-2]:item.position[0]>1?[-3,2,-2]:[3,2,-3];
-    camera.position.set(p.x+offset[0],p.y+offset[1],p.z+offset[2]);
+    if(item.kind==='shelf'){
+      const distance=Math.max(2.3,item.size[2]*.95);
+      camera.position.set(p.x+(item.position[0]<0?distance:-distance),1.65,p.z-.18);
+    }else{
+      const offset=item.position[0]<-1?[3,2,-2]:item.position[0]>1?[-3,2,-2]:[3,2,-3];
+      camera.position.set(p.x+offset[0],p.y+offset[1],p.z+offset[2]);
+    }
     orbit.current.update();
   },[selected,mode,camera,layout]);
   useEffect(()=>{
@@ -381,14 +551,14 @@ function World(props:SceneProps){
   const {width:w,depth:d,height:h}=props.layout.config;
   useEffect(()=>{spotTarget.position.set(0,0,props.layout.front+props.layout.config.depth*.53);if(sun.current)sun.current.shadow.needsUpdate=true;if(spot.current)spot.current.shadow.needsUpdate=true;invalidate();},[props.mode,props.roof,props.gates,props.proposal,props.layout,invalidate]);
   return <LabelTextures.Provider value={labelCache}><Finish.Provider value={props.layout.config.finish}>
-    <color attach="background" args={['#b8b5ad']}/><Reflections/>
+    <color attach="background" args={['#d9cdbc']}/><Reflections/>
     <ambientLight intensity={.12}/><hemisphereLight args={['#ede7db','#6c786d',.35]}/>
     <directionalLight ref={sun} shadow-autoUpdate={false} position={[-w,7,-d]} intensity={1.7} color="#fff2da" castShadow shadow-mapSize={[2048,2048]} shadow-camera-left={-w} shadow-camera-right={w} shadow-camera-top={d} shadow-camera-bottom={-d} shadow-normalBias={.018} shadow-radius={4} visible={props.mode!=='walk'}/>
     <primitive object={spotTarget}/>
     <spotLight ref={spot} shadow-autoUpdate={false} target={spotTarget} position={[0,h-.12,props.layout.front+d*.32]} angle={1.3} penumbra={.8} intensity={34} color="#fff1d9" distance={Math.max(w,d)*1.5} decay={2} castShadow={props.mode==='walk'} shadow-mapSize={[1024,1024]} shadow-normalBias={.012} shadow-bias={-.0001} shadow-radius={4}/>
     <pointLight position={[0,h-.22,-d*.17]} intensity={8} color="#fff0d4" distance={Math.max(w,d)} decay={2}/>
     <pointLight position={[0,h-.2,d*.29]} intensity={11} color="#f4f7ef" distance={Math.max(w,d)} decay={2}/>
-    <Architecture {...props}/>
+    <Architecture {...props}/><RetailDecor layout={props.layout} full={props.mode==='walk'||props.roof}/>
     {props.layout.items.map(item=><Furniture key={item.id} item={item} selected={props.selected===item.id} proposal={props.proposal} onSelect={props.onSelect}/>)}
     <ContactShadows key={`${props.mode}-${props.roof}-${props.gates.service}-${props.gates.entrance}-${props.proposal}`} position={[0,-.007,0]} scale={Math.max(w,d)+.2} opacity={.4} blur={2.6} far={2.5} resolution={512} frames={1} color="#314035"/>
     <CameraRig {...props}/><Ready onReady={props.onReady}/>

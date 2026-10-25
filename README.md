@@ -2,7 +2,7 @@
 
 **Brío Pet** es el nombre elegido para la tienda de Luis y Briggite. «Brío» expresa vigor, determinación y vitalidad; la marca interpreta la fortaleza y el carácter decidido de ambos, sin unir fragmentos de sus nombres. La identidad aparece en la web, el mostrador, los empaques y los letreros.
 
-Simulador arquitectónico interactivo de un pet shop con baño y grooming en Casma, Perú. La versión 3 permite definir el local antes de generar la distribución: **frente, fondo, altura, tipo de acceso, prioridad comercial y acabado**. El modelo se construye con geometría tridimensional real y se puede recorrer.
+Simulador arquitectónico interactivo de un pet shop con baño y grooming en Casma, Perú. La versión 4 permite definir el local antes de generar la distribución: **frente, fondo, altura, tipo de acceso, prioridad comercial y acabado**. El modelo se construye con geometría tridimensional real y se puede recorrer.
 
 ## Probar la demo
 
@@ -33,6 +33,16 @@ La recepción se ubica al fondo de la tienda, con espacio de trabajo detrás; la
 La barra de snacks muestra seis familias con geometrías distintas: galletas horneadas, tiras de pollo, bocados de pescado, masticables dentales, premios de entrenamiento y aros de enriquecimiento. Los estantes combinan sacos, sobres húmedos, conservas y frascos. El botón **Ver exhibidor** enfoca la barra y el panel presenta los nombres y descripciones. Es una propuesta de surtido, no un inventario con disponibilidad o marcas comerciales verificadas.
 
 El modelo incluye recepción y POS, espera, alimentos y snacks, higiene, juguetes, correas y arneses, cama y transportadora cuando hay espacio, tina con ducha, mesa de grooming, sopladora/secador, utensilios, almacén y módulo de limpieza y toallas.
+
+## Boutique y ambientación
+
+El local de 70 m² tiene exhibidores diferentes para **ropa y bandanas**, **paseo y accesorios**, **juego y descanso** y **alimentos**. Los snacks se concentran en una barra; cuando hay dos islas, la segunda muestra novedades y juguetes. En locales compactos, un módulo combina ropa, paseo y juego sin añadir muebles a los pasillos.
+
+Las prendas tienen silueta, mangas, textura de tela, perchas, rayas, capuchas o estampado de huella. Los accesorios incluyen arneses, collares con hebillas, correas, bolsos y comederos. Se modelan pelotas, aros, cuerdas, peluches, camas y mantas. La sección de paseo incluye una repisa de higiene; en locales más largos se añade un módulo dedicado a cuidado.
+
+Los accesos directos **Ropa / Paseo / Juguetes / Cuidado / Snacks** enfocan cada exhibidor en 3D, también en celular. El panel describe su surtido. La vista inicial de locales amplios mira hacia la boutique de ropa desde la entrada.
+
+La ambientación combina roble claro, verde salvia y terracota: paneles arqueados, cuadros de perro y gato, plantas sobre los exhibidores, guías vegetales, detalles en latón, lámparas colgantes y cojines. Los adornos se sitúan en paredes, techo o muebles existentes. La partida de ambientación aparece en el presupuesto con precios orientativos. Las medidas elegidas previamente se conservan.
 
 ## Materiales y visualización
 
